@@ -38,3 +38,16 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   `main`, even if the session assigns a `claude/...` branch. Pull `main` first.
 - Do not open PRs or post GitHub comments on the game repo unless asked, and
   then without Claude footers or attribution.
+
+## 5. Modelling: references first
+- Before modelling or refining any object, gather real references instead of
+  working from memory: manufacturer spec sheets and dimension drawings, product
+  photos from several angles, close-ups of details (controls, hinges, seams,
+  labels, fasteners, wear). Note real dimensions and materials.
+- Save reference images and notes outside the repos, in
+  `~/Documents/Blender/HotelLaundry/references/<object>/`, and write a short
+  summary (sources + key dimensions/details) to `docs/references/<object>.md`
+  in this repo. Never put reference images in the game repo.
+- Compare renders side by side with the references and list what differs
+  before calling a model done.
+- Use real products only as reference; models use fictional branding.
