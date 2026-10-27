@@ -75,3 +75,10 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
 - "Build asset version error" / "Import Error Code:(4)" in `Logs/Editor.log`
   means files changed on disk while Unity was importing (e.g. a `git pull`).
   Unity rescans them on its own; not a real problem.
+- Pipeline `instantiate` only takes prefab assets. An imported `.glb` (glTFast)
+  is not one and logs a Console error. Place models with `eval`:
+  `PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(path))`,
+  or make a prefab from it first.
+- `game_view` / `scene_view` with `save_path` save under the authoring root
+  (e.g. `Assets/Koki (HeppiriRaid)/Temp/`), i.e. inside the game repo. Don't use
+  `save_path`; decode the inline image instead.

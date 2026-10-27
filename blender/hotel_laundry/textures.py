@@ -58,12 +58,13 @@ def save(name, rgb, non_color=False):
 
 
 def brushed_steel(n=1024):
-    fine = filtered_noise(n, 180, 0.6)
-    coarse = filtered_noise(n, 400, 6)
+    # Real brushing is very fine: keep streak contrast low, mostly 1-2 px wide.
+    fine = filtered_noise(n, 220, 0.45)
+    coarse = filtered_noise(n, 500, 3)
     smudge = filtered_noise(n, 60, 60)
-    h = 0.75 * fine + 0.25 * coarse
-    base = 0.62 + 0.06 * (h - 0.5) - 0.03 * smudge
-    rough = 0.22 + 0.16 * h + 0.10 * smudge ** 3
+    h = 0.9 * fine + 0.1 * coarse
+    base = 0.63 + 0.025 * (h - 0.5) - 0.025 * smudge
+    rough = 0.24 + 0.07 * h + 0.08 * smudge ** 3
     tint = np.stack([base * 0.985, base * 0.995, base * 1.0], axis=-1)
     save("steel_brushed_basecolor", tint)
     save("steel_brushed_roughness", rough, non_color=True)
@@ -97,7 +98,16 @@ def rubber(n=512):
     save("rubber_normal", height_to_normal(grain, 1.5), non_color=True)
 
 
+def painted_metal(n=1024):
+    """Powder-coated sheet metal: soft orange-peel bumps, faint mottling."""
+    peel = filtered_noise(n, 3.0, 3.0)
+    mottle = filtered_noise(n, 90, 90)
+    save("paint_powder_roughness", 0.36 + 0.08 * peel + 0.08 * mottle, non_color=True)
+    save("paint_powder_normal", height_to_normal(peel, 1.6), non_color=True)
+
+
 def build_all():
+    painted_metal()
     brushed_steel()
     perforated_drum()
     matte_plastic()

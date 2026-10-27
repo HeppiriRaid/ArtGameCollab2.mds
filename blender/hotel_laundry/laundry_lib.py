@@ -159,6 +159,37 @@ def cylinder_bm(radius, depth, segments=32, center=(0, 0, 0), axis="Z", caps=Tru
     return bm
 
 
+def rounded_plate_bm(w, h, radius, thickness, center=(0, 0, 0), segments=8, facing="-y"):
+    """Plate with rounded corners: w along X, h along Z, extruded toward `facing`.
+
+    facing '-y' / '+y' for front/back faces, '-x' / '+x' for side faces.
+    """
+    bm = bmesh.new()
+    hw, hh = w / 2, h / 2
+    verts = [bm.verts.new(co) for co in ((-hw, 0, -hh), (hw, 0, -hh), (hw, 0, hh), (-hw, 0, hh))]
+    bm.faces.new(verts)
+    bmesh.ops.bevel(bm, geom=verts, offset=radius, segments=segments, affect="VERTICES",
+                    profile=0.5, profile_type="SUPERELLIPSE")   # 0.5 = round corner
+    ext = bmesh.ops.extrude_face_region(bm, geom=list(bm.faces))
+    moved = [e for e in ext["geom"] if isinstance(e, bmesh.types.BMVert)]
+    bmesh.ops.translate(bm, vec=Vector((0, -thickness, 0)), verts=moved)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    rot = {"-y": Matrix(), "+y": Matrix.Rotation(math.pi, 4, "Z"),
+           "-x": Matrix.Rotation(-math.pi / 2, 4, "Z"), "+x": Matrix.Rotation(math.pi / 2, 4, "Z")}[facing]
+    bmesh.ops.transform(bm, matrix=Matrix.Translation(center) @ rot, verts=bm.verts)
+    return bm
+
+
+def triangulate(obj):
+    """Last modifier: avoids n-gon tangent errors in the glTF export."""
+    mod = obj.modifiers.new("Triangulate", "TRIANGULATE")
+    if hasattr(mod, "keep_custom_normals"):   # removed in newer Blender, always kept there
+        mod.keep_custom_normals = True
+    mod.quad_method = "BEAUTY"
+    mod.min_vertices = 5                      # only n-gons; quads tangent fine
+    return mod
+
+
 def revolve_bm(profile, segments=64, closed=True, center=(0, 0, 0)):
     """Lathe a (radius, y) profile around the Y axis, then move to `center`.
 
