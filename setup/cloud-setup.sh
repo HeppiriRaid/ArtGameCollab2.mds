@@ -11,6 +11,13 @@ fi
 git config --global user.name HeppiriRaid
 git config --global user.email koukixieben@gmail.com
 mkdir -p ~/.claude
+# No Co-Authored-By / attribution lines in commits or PRs.
+cat > ~/.claude/settings.json <<'SETTINGS'
+{
+  "includeCoAuthoredBy": false,
+  "attribution": { "commit": "", "pr": "" }
+}
+SETTINGS
 cat > ~/.claude/CLAUDE.md <<RULES
 The AI docs repo is cloned at $DOCS. Its rules apply to every session:
 

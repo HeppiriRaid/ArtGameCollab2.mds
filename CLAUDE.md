@@ -26,8 +26,7 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   never as Claude. Check `git config user.name` before committing.
 - Commit messages, code comments, file names and branch names in the game repo
   must not mention Claude, Anthropic, AI or session links.
-- Do not push `claude/...` branches to the game repo. If the session assigns a
-  `claude/` branch, ask the user for a plain branch name (or use `main` if they
-  say so) before pushing.
+- Never create or push branches in the game repo. Commit and push straight to
+  `main`, even if the session assigns a `claude/...` branch. Pull `main` first.
 - Do not open PRs or post GitHub comments on the game repo unless asked, and
   then without Claude footers or attribution.
