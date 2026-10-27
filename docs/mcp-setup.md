@@ -60,3 +60,18 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
 - Export `.glb`/`.fbx` into `Assets/Koki (HeppiriRaid)/Models/` (or
   `Assets/Public Assets/` if shared); let Unity generate the `.meta`.
 - No `.blend` scratch files or AI notes in the game repo unless asked.
+
+## Unity CLI gotchas
+- Don't pipe `unity command ...` output into `head`/`grep -m`: closing the
+  pipe early resets the connection and Pipeline logs two Console errors
+  ("Cannot be changed after headers are sent" / "Connection reset by peer").
+  Write the output to a file first, then read it.
+- Read the Console with
+  `unity command console get --tail 60 --level error --result-only`
+  and check health with `unity command console status --result-only`
+  (`groundTruth.compilationFailed`, `consoleErrors`).
+- Several MCP tools share names (`get`, `create`, `list`...); when the right
+  one is unclear, use the CLI (`unity command <group> <name> ...`).
+- "Build asset version error" / "Import Error Code:(4)" in `Logs/Editor.log`
+  means files changed on disk while Unity was importing (e.g. a `git pull`).
+  Unity rescans them on its own; not a real problem.
