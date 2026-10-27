@@ -170,10 +170,11 @@ def box_bm(sx, sy, sz, center=(0, 0, 0), skip=()):
     hx, hy, hz = sx / 2, sy / 2, sz / 2
     v = [bm.verts.new((cx + x * hx, cy + y * hy, cz + z * hz))
          for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]
+    # Vertex index = 4*x + 2*y + z (each 0 for -1, 1 for +1); windings face outward.
     faces = {
         "-x": (0, 1, 3, 2), "+x": (4, 6, 7, 5),
-        "-y": (0, 2, 6, 4), "+y": (1, 5, 7, 3),
-        "-z": (0, 4, 5, 1), "+z": (2, 3, 7, 6),
+        "-y": (0, 4, 5, 1), "+y": (2, 3, 7, 6),
+        "-z": (0, 2, 6, 4), "+z": (1, 5, 7, 3),
     }
     for key, idx in faces.items():
         if key not in skip:
@@ -464,6 +465,10 @@ def merged_copy(col_name, keep_separate=(), tmp_name="_Export"):
     it can still move in Unity. Returns the temp collection name.
     """
     src = bpy.data.collections[col_name]
+    # Objects in a viewport-hidden collection are not evaluated, so their
+    # matrix_world is stale; make it visible and refresh before reading it.
+    src.hide_viewport = False
+    bpy.context.view_layer.update()
     clear_collection(tmp_name)
     tmp = collection(tmp_name)
     root_src = next(o for o in src.objects if o.parent is None)

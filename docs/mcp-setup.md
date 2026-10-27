@@ -82,3 +82,10 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
 - `game_view` / `scene_view` with `save_path` save under the authoring root
   (e.g. `Assets/Koki (HeppiriRaid)/Temp/`), i.e. inside the game repo. Don't use
   `save_path`; decode the inline image instead.
+
+## Lighting lessons (Laundry scene)
+- RenderTexture captures from eval are not HDR-accurate: the real Game view
+  (with bloom) was far brighter. Judge brightness with `game_view source=screen`.
+- Final values: spot lamps 9 (red bays 6), lens emissive x1.5, bloom 0.12 /
+  threshold 1.4 / scatter 0.45, post exposure 0, trilight ambient with a warm
+  floor bounce (call `DynamicGI.UpdateEnvironment()` after changing it).

@@ -54,16 +54,12 @@ def troffer():
     for i, (sx, sy, cx, cy) in enumerate([(w, 0.025, 0, -l / 2 + 0.0125), (w, 0.025, 0, l / 2 - 0.0125),
                                           (0.025, l, -w / 2 + 0.0125, 0), (0.025, l, w / 2 - 0.0125, 0)]):
         add(f"Flange_{i}", L.box_bm(sx, sy, 0.012, (cx, cy, -0.006)), white, col, root, bev=(0.003, 2))
-    add("Lens", L.box_bm(w - 0.06, l - 0.06, 0.004, (0, 0, d - 0.02)), lens, col, root)
-    # Parabolic louvres: 3 long blades, 9 cross blades, curved profile approximated by a taper.
-    for i in range(4):
-        x = -w / 2 + 0.03 + i * (w - 0.06) / 3
-        bm = L.box_bm(0.006, l - 0.06, 0.07, (x, 0, 0.035))
-        add(f"LouvreLong_{i}", bm, louvre, col, root, bev=(0.0025, 2))
-    for k in range(10):
-        y = -l / 2 + 0.03 + k * (l - 0.06) / 9
-        add(f"LouvreCross_{k}", L.box_bm(w - 0.06, 0.005, 0.07, (0, y, 0.035)), louvre, col, root,
-            bev=(0.002, 2))
+    # Flat prismatic acrylic lens just above the flange (the classic backrooms panel),
+    # with a thin inner trim; the lamp tubes read as two brighter bands through it.
+    add("Lens", L.box_bm(w - 0.05, l - 0.05, 0.004, (0, 0, 0.012)), lens, col, root)
+    for i, (sx, sy, cx, cy) in enumerate([(w - 0.04, 0.012, 0, -l / 2 + 0.026), (w - 0.04, 0.012, 0, l / 2 - 0.026),
+                                          (0.012, l - 0.04, -w / 2 + 0.026, 0), (0.012, l - 0.04, w / 2 - 0.026, 0)]):
+        add(f"Trim_{i}", L.box_bm(sx, sy, 0.016, (cx, cy, 0.006)), louvre, col, root, bev=(0.002, 2))
     return col.name
 
 
