@@ -106,7 +106,45 @@ def painted_metal(n=1024):
     save("paint_powder_normal", height_to_normal(peel, 1.6), non_color=True)
 
 
+def ceiling_tile(n=1024):
+    """2 x 2 drop-ceiling tiles (0.6 m each) with fissured acoustic surface and
+    the white T-bar grid baked in. One texture tile = 1.2 m."""
+    y, x = np.mgrid[0:n, 0:n] / n * 2.0            # tile units, 2 tiles per texture
+    fx, fy = x % 1.0, y % 1.0
+    bar = 0.04                                       # 24 mm T-bar on a 600 mm tile
+    edge = np.minimum(np.minimum(fx, 1 - fx), np.minimum(fy, 1 - fy))
+    is_bar = edge < bar / 2
+    bevel = np.clip((edge - bar / 2) / 0.012, 0, 1)  # tile edge rolls down into the grid
+    pores = filtered_noise(n, 0.8, 0.8)
+    fissure = filtered_noise(n, 6, 1.2) * filtered_noise(n, 1.2, 6)
+    fiss = np.clip((0.12 - np.abs(fissure - 0.3)) / 0.12, 0, 1) ** 2
+    pit = (pores < 0.18).astype(float)
+    tile_h = 0.6 * bevel - 0.25 * pit - 0.35 * fiss
+    h = np.where(is_bar, 0.2, tile_h)
+    base_tile = 0.80 - 0.06 * pit - 0.08 * fiss + 0.02 * (pores - 0.5)
+    base = np.where(is_bar, 0.86, base_tile)
+    rgb = np.stack([base, base * 0.985, base * 0.955], axis=-1)
+    save("ceiling_tile_basecolor", rgb)
+    save("ceiling_tile_roughness", np.where(is_bar, 0.35, 0.9), non_color=True)
+    save("ceiling_tile_normal", height_to_normal(h, 3.0), non_color=True)
+
+
+def towel(n=512):
+    """Terry cloth: dense loop pile plus a flat woven dobby band. One tile = 0.25 m."""
+    loops = filtered_noise(n, 0.7, 0.7)
+    clumps = filtered_noise(n, 3.0, 3.0)
+    y = np.mgrid[0:n, 0:n][0] / n
+    band = ((y % 0.5) > 0.42).astype(float)          # woven border band every half tile
+    h = (0.6 * loops + 0.4 * clumps) * (1 - 0.8 * band) + 0.15 * band
+    base = 0.86 - 0.08 * (1 - h) - 0.02 * band
+    save("towel_basecolor", np.stack([base, base * 0.99, base * 0.96], axis=-1))
+    save("towel_roughness", 0.92 - 0.1 * band, non_color=True)
+    save("towel_normal", height_to_normal(h, 4.0), non_color=True)
+
+
 def build_all():
+    towel()
+    ceiling_tile()
     painted_metal()
     brushed_steel()
     perforated_drum()

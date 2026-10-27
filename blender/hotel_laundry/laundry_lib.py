@@ -60,19 +60,30 @@ def link(obj, col, parent=None):
 
 # ------------------------------------------------------------------ materials
 
-def _image(name, non_color):
-    path = os.path.join(TEX_DIR, name + ".png")
-    img = bpy.data.images.get(name + ".png")
-    if img is None or img.filepath != path:
-        img = bpy.data.images.load(path, check_existing=True)
+def _tex_path(stem):
+    for ext in (".png", ".jpg"):
+        path = os.path.join(TEX_DIR, stem + ext)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _image(stem, non_color):
+    path = _tex_path(stem)
+    img = bpy.data.images.load(path, check_existing=True)
     img.colorspace_settings.name = "Non-Color" if non_color else "sRGB"
     return img
 
 
 def material(name, base=(0.8, 0.8, 0.8), metallic=0.0, roughness=0.5,
              tex=None, normal_strength=1.0, emission=None, emission_strength=0.0,
-             alpha=1.0, ior=1.5, coat=0.0):
-    """Principled material, optionally driven by `<tex>_basecolor/_roughness/_normal` PNGs."""
+             alpha=1.0, ior=1.5, coat=0.0, vertex_color=False, tint=None):
+    """Principled material, optionally driven by `<tex>_basecolor/_roughness/_normal` images.
+
+    vertex_color multiplies the "Col" attribute into the base colour (exported as
+    glTF COLOR_0, which Unity's glTF shader multiplies too): used for grime.
+    tint multiplies a constant colour into a textured base colour.
+    """
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.use_nodes = True
     nt = mat.node_tree
@@ -86,18 +97,40 @@ def material(name, base=(0.8, 0.8, 0.8), metallic=0.0, roughness=0.5,
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["IOR"].default_value = ior
     bsdf.inputs["Coat Weight"].default_value = coat
+    base_socket = bsdf.inputs["Base Color"]
+    if vertex_color:
+        attr = nt.nodes.new("ShaderNodeVertexColor")
+        attr.layer_name = "Col"
+        attr.location = (-600, 600)
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        mix.blend_type = "MULTIPLY"
+        mix.inputs["Factor"].default_value = 1.0
+        mix.inputs["A"].default_value = (*base, 1.0)
+        mix.location = (-250, 450)
+        nt.links.new(attr.outputs["Color"], mix.inputs["B"])
+        nt.links.new(mix.outputs["Result"], base_socket)
+        base_socket = mix.inputs["A"]
     if tex:
         y = 300
         for suffix, non_color in (("basecolor", False), ("roughness", True), ("normal", True)):
-            path = os.path.join(TEX_DIR, f"{tex}_{suffix}.png")
-            if not os.path.exists(path):
+            if _tex_path(f"{tex}_{suffix}") is None:
                 continue
             node = nt.nodes.new("ShaderNodeTexImage")
             node.image = _image(f"{tex}_{suffix}", non_color)
             node.location = (-600, y)
             y -= 300
             if suffix == "basecolor":
-                nt.links.new(node.outputs["Color"], bsdf.inputs["Base Color"])
+                if tint is not None:
+                    tmix = nt.nodes.new("ShaderNodeMix")
+                    tmix.data_type = "RGBA"
+                    tmix.blend_type = "MULTIPLY"
+                    tmix.inputs["Factor"].default_value = 1.0
+                    tmix.inputs["B"].default_value = (*tint, 1.0)
+                    nt.links.new(node.outputs["Color"], tmix.inputs["A"])
+                    nt.links.new(tmix.outputs["Result"], base_socket)
+                else:
+                    nt.links.new(node.outputs["Color"], base_socket)
             elif suffix == "roughness":
                 nt.links.new(node.outputs["Color"], bsdf.inputs["Roughness"])
             else:
@@ -147,6 +180,55 @@ def box_bm(sx, sy, sz, center=(0, 0, 0), skip=()):
             bm.faces.new([v[i] for i in idx])
     bm.normal_update()
     return bm
+
+
+def grid_bm(size_u, size_v, step, origin, axis_u, axis_v):
+    """Flat grid of quads (`step` metres) spanning size_u x size_v.
+
+    origin is the grid corner; axis_u / axis_v are unit Vectors along its edges.
+    Normals follow axis_u x axis_v.
+    """
+    bm = bmesh.new()
+    nu, nv = max(1, round(size_u / step)), max(1, round(size_v / step))
+    o, au, av = Vector(origin), Vector(axis_u), Vector(axis_v)
+    rows = [[bm.verts.new(o + au * (size_u * i / nu) + av * (size_v * j / nv)) for i in range(nu + 1)]
+            for j in range(nv + 1)]
+    for j in range(nv):
+        for i in range(nu):
+            bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+    bm.normal_update()
+    return bm
+
+
+def grime(obj, seed=0, floor=0.0, floor_band=0.35, floor_dark=0.62, stain=0.35, stain_scale=1.6,
+          ceiling=None, ceiling_band=0.6, drip=0.0):
+    """Paint a "Col" vertex colour layer: dark band near the floor, blotchy stains,
+    optional darkening toward the ceiling and vertical drip streaks.
+    Works in world space so neighbouring pieces match."""
+    from mathutils import noise
+    me = obj.data
+    col = me.color_attributes.get("Col") or me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+    mw = obj.matrix_world
+    off = Vector((seed * 13.1, seed * 7.7, seed * 3.3))
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            p = mw @ me.vertices[me.loops[li].vertex_index].co
+            v = 1.0
+            h = p.z - floor
+            if h < floor_band:
+                v *= floor_dark + (1 - floor_dark) * max(0.0, h / floor_band) ** 0.7
+            n = noise.fractal(p / stain_scale + off, 0.6, 2.2, 4)
+            v *= 1.0 - stain * max(0.0, n) ** 1.3
+            if drip > 0:
+                d = noise.noise(Vector((p.x * 9 + off.x, p.y * 9 + off.y, p.z * 0.35)))
+                v *= 1.0 - drip * max(0.0, d) ** 2
+            if ceiling is not None and ceiling - p.z < ceiling_band:
+                v *= 0.85 + 0.15 * (ceiling - p.z) / ceiling_band
+            v = max(0.0, min(1.0, v))
+            tint = (v, v * 0.985, v * 0.95, 1.0)     # grime is warm, not grey
+            col.data[li].color = tint
+    me.color_attributes.active_color = col
+    return col
 
 
 def cylinder_bm(radius, depth, segments=32, center=(0, 0, 0), axis="Z", caps=True):
@@ -362,23 +444,105 @@ def text_mesh(name, body, size, mat, col, parent=None, bold=False, extrude=0.0,
 
 # --------------------------------------------------------------------- export
 
-def export_glb(col_name, path):
-    """Export one collection as .glb with modifiers applied and textures embedded."""
+def _group_of(obj, keep_separate):
+    """The keep_separate pivot this object hangs under (matched without Blender's
+    .001 suffixes, since every prop has its own "Door"), or None."""
+    p = obj
+    while p is not None:
+        if p.name.split(".")[0] in keep_separate:
+            return p
+        p = p.parent
+    return None
+
+
+def merged_copy(col_name, keep_separate=(), tmp_name="_Export"):
+    """Copy a prop into `tmp_name` as few objects as possible.
+
+    All meshes are modifier-applied and joined into one object (one glTF mesh,
+    one primitive per material). Each hierarchy under an empty named in
+    keep_separate (e.g. "Door") becomes its own object, origin at that empty, so
+    it can still move in Unity. Returns the temp collection name.
+    """
+    src = bpy.data.collections[col_name]
+    clear_collection(tmp_name)
+    tmp = collection(tmp_name)
+    root_src = next(o for o in src.objects if o.parent is None)
+    root = root_empty(root_src.name, tmp)
+    dg = bpy.context.evaluated_depsgraph_get()
+    groups = {}
+    for obj in src.all_objects:
+        if obj.type != "MESH":
+            continue
+        me = bpy.data.meshes.new_from_object(obj.evaluated_get(dg), preserve_all_data_layers=True, depsgraph=dg)
+        me.transform(obj.matrix_world)
+        if "Col" not in me.color_attributes:
+            # Joining fills a missing layer with black, and glTF multiplies COLOR_0
+            # into every primitive, so ungrimed parts must be explicitly white.
+            c = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+            c.data.foreach_set("color", [1.0] * (4 * len(c.data)))
+        copy = bpy.data.objects.new(obj.name + "_m", me)
+        tmp.objects.link(copy)
+        groups.setdefault(_group_of(obj, keep_separate), []).append(copy)
+    # Marker empties (WasherSlot_03, SideDoorTrigger, ...) survive as plain nodes.
+    for obj in src.all_objects:
+        if obj.type == "EMPTY" and ("Slot" in obj.name or "Trigger" in obj.name):
+            e = bpy.data.objects.new(obj.name, None)
+            tmp.objects.link(e)
+            e.parent = root
+            e.matrix_world = obj.matrix_world.copy()
+    out = []
+    for key, objs in groups.items():
+        active = objs[0]
+        if len(objs) > 1:
+            with bpy.context.temp_override(active_object=active, object=active,
+                                           selected_objects=objs, selected_editable_objects=objs):
+                bpy.ops.object.join()
+        if key is None:
+            active.name = root_src.name + "_Body"
+            active.data.name = active.name
+        else:
+            pivot = key.matrix_world.copy()
+            active.data.transform(pivot.inverted())
+            active.matrix_world = pivot
+            active.name = key.name.split(".")[0]
+            active.data.name = active.name
+        world = active.matrix_world.copy()
+        active.parent = root
+        active.matrix_world = world
+        out.append(active.name)
+    return tmp_name, out
+
+
+def export_glb(col_name, path, keep_separate=None):
+    """Export one collection as .glb with modifiers applied and textures embedded.
+
+    With keep_separate (a tuple, may be empty) the prop is first merged by
+    merged_copy(); the temp copy is removed afterwards.
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = None
+    if keep_separate is not None:
+        tmp, _ = merged_copy(col_name, keep_separate)
+        col_name = tmp
     bpy.ops.export_scene.gltf(
         filepath=path,
         export_format="GLB",
         use_active_collection=False,
         collection=col_name,
+        export_vertex_color="MATERIAL",
         export_apply=True,
         export_texcoords=True,
         export_normals=True,
         export_tangents=True,
         export_materials="EXPORT",
-        export_image_format="AUTO",
+        export_image_format="JPEG",      # ~4x smaller than PNG; no alpha textures are used
+        export_jpeg_quality=88,
         export_yup=True,
         export_extras=False,
         export_lights=False,
         export_cameras=False,
     )
+    if tmp is not None:
+        clear_collection(tmp)
+        bpy.data.collections.remove(bpy.data.collections[tmp])
     return os.path.getsize(path)

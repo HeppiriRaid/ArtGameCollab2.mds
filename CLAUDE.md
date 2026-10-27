@@ -10,6 +10,8 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   `_SharedFiles`, `Settings`, `Packages/`, `ProjectSettings/`, etc.) belongs to
   classmates: read it if needed, never create, edit, move or delete there.
   Ask the user first if a change elsewhere seems necessary.
+- Exception (user-approved): TextMesh Pro may be used, and importing its
+  resources may create `Assets/TextMesh Pro/` outside Koki's folder.
 - Unity Pipeline authoring root stays at `Assets/Koki (HeppiriRaid)` (or
   `Assets/Public Assets` while working there). Never set it to `Assets`.
 - Never put `CLAUDE.md`, `.claude/`, AI notes, plans, memories, prompts or other
