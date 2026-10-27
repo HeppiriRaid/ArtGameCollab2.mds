@@ -18,6 +18,13 @@ To keep the game repo clean, register both servers at **user scope**
   the "Step 2" of the official guide:
   https://docs.unity3d.com/Packages/com.unity.ai.assistant@2.0/manual/unity-mcp-get-started.html
 - Check: run `claude mcp list` and confirm the Unity server is connected.
+- Manual config: Claude Code runs the relay with `--mcp`, e.g.
+  `claude mcp add --scope user unity -- ~/.unity/relay/<relay binary for your OS> --mcp`
+  (macOS arm64: `relay_mac_arm64.app/Contents/MacOS/relay_mac_arm64`).
+- Newer package versions (2.18 docs) mark the in-editor MCP server as
+  deprecated in favour of the Unity CLI; a third-party guide shows
+  `unity mcp configure claude`. Check the docs for the installed version.
+- Unity AI features may need a Unity AI plan/points; check before relying on it.
 
 ## Blender
 Official (Blender Lab, Blender 5.1+), preferred:
