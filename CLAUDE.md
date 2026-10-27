@@ -61,3 +61,13 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   already exist, but must not spawn the level at Start.
 - Every scene gets reflection probes and a sensible lighting setup, and is
   saved after each build step.
+
+## 7. No rendering artifacts (z-fighting)
+- Never leave two surfaces in the same plane overlapping (coplanar walls,
+  backing panels, trims ending flush on another face). Offset or embed them.
+- Where pieces meet at a corner, run one piece past the corner so its end is
+  hidden inside/behind the other, instead of ending exactly on its face.
+- Decals, stickers, printed text and thin plates sit >= 1.5 mm off their
+  surface (text >= 2.5 mm), so depth precision at game distances can't flicker.
+- Before calling a scene done, look for flicker at corners, wall joins, floor
+  edges and on decals from a few metres away.

@@ -98,6 +98,34 @@ def rubber(n=512):
     save("rubber_normal", height_to_normal(grain, 1.5), non_color=True)
 
 
+def stainless_satin(n=2048):
+    """Realistic satin-brushed stainless: hairline grain, faint longer scratches,
+    soft hand-smudges and a few oily fingerprints. One tile = 0.5 m, grain along U."""
+    hair = filtered_noise(n, 600, 0.35)            # ~1 px hairlines, very long
+    scratch = filtered_noise(n, 1500, 1.2)
+    scratch = np.clip((scratch - 0.62) / 0.2, 0, 1) ** 2
+    smudge = filtered_noise(n, 140, 140)
+    blotch = filtered_noise(n, 40, 40)
+    # Fingerprints: a few oval patches of fine concentric ridges.
+    yy, xx = np.mgrid[0:n, 0:n] / n
+    prints = np.zeros((n, n))
+    for _ in range(7):
+        cx, cy = RNG.random(2)
+        ax, ay = 0.018 + 0.01 * RNG.random(), 0.024 + 0.012 * RNG.random()
+        dx = (xx - cx + 0.5) % 1 - 0.5
+        dy = (yy - cy + 0.5) % 1 - 0.5
+        r = np.sqrt((dx / ax) ** 2 + (dy / ay) ** 2)
+        ridges = 0.5 + 0.5 * np.sin(r * 55)
+        prints = np.maximum(prints, np.clip(1 - r, 0, 1) ** 0.6 * ridges)
+    h = 0.8 * hair + 0.2 * scratch
+    base = 0.6 + 0.03 * (hair - 0.5) - 0.02 * blotch - 0.015 * prints
+    rough = 0.2 + 0.07 * hair + 0.1 * smudge ** 2 + 0.05 * scratch - 0.08 * prints + 0.04 * blotch
+    tint = np.stack([base * 0.985, base * 0.995, base], axis=-1)
+    save("stainless_satin_basecolor", tint)
+    save("stainless_satin_roughness", np.clip(rough, 0.08, 0.6), non_color=True)
+    save("stainless_satin_normal", height_to_normal(h, 1.4), non_color=True)
+
+
 def painted_metal(n=1024):
     """Powder-coated sheet metal: soft orange-peel bumps, faint mottling."""
     peel = filtered_noise(n, 3.0, 3.0)
