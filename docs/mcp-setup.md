@@ -1,49 +1,39 @@
-# MCP setup: Unity editor + Blender
+# MCP setup: Unity editor + Blender (Koki's Mac)
 
-Unity and Blender run on the user's own computer, so their MCP servers only
-work with a Claude Code session that runs on that computer too (Claude Desktop
-app, or the `claude` CLI). A cloud session cannot reach them.
+Both servers are registered at **user scope** in `~/.claude.json`, never with a
+`.mcp.json` in the game repo. Check with `claude mcp list`.
 
-To keep the game repo clean, register both servers at **user scope**
-(`--scope user`), never with a `.mcp.json` in the game repo.
+## Local Mac setup (done 2026-10-27)
+- Docs repo cloned at `~/Documents/GitHub/ArtGameCollab2.mds`.
+- `~/.claude/CLAUDE.md` imports this repo's `CLAUDE.md`.
+- `~/.claude/settings.json`: `includeCoAuthoredBy: false`, blank `attribution`
+  (backup of the old file: `settings.json.bak`).
+- Do not run `setup/cloud-setup.sh` on the Mac: it overwrites
+  `~/.claude/settings.json` and `~/.claude/CLAUDE.md`. It is for cloud sessions only.
 
-## Unity (official: Unity AI Assistant package)
-- Requires Unity 6+ (project is 6000.6.7f1) and package `com.unity.ai.assistant`.
-- Installing the package changes `Packages/manifest.json` and
-  `packages-lock.json` in the game repo. That affects every collaborator, so
-  agree with the team before committing those two files.
-- In the editor: Edit > Project Settings > AI > Unity MCP. "Unity Bridge"
-  should say Running. The relay binary installs itself to `~/.unity/relay/`.
-- Connect Claude Code from that settings page (client integration), or follow
-  the "Step 2" of the official guide:
-  https://docs.unity3d.com/Packages/com.unity.ai.assistant@2.0/manual/unity-mcp-get-started.html
-- Check: run `claude mcp list` and confirm the Unity server is connected.
-- Manual config: Claude Code runs the relay with `--mcp`, e.g.
-  `claude mcp add --scope user unity -- ~/.unity/relay/<relay binary for your OS> --mcp`
-  (macOS arm64: `relay_mac_arm64.app/Contents/MacOS/relay_mac_arm64`).
-- Newer package versions (2.18 docs) mark the in-editor MCP server as
-  deprecated in favour of the Unity CLI; a third-party guide shows
-  `unity mcp configure claude`. Check the docs for the installed version.
-- Unity AI features may need a Unity AI plan/points; check before relying on it.
+## Unity: connected
+- Package `com.unity.ai.assistant` 2.21.0-pre.2 is already in the game repo.
+- Uses the Unity CLI at `~/.unity/bin/unity` (the newer replacement for the
+  in-editor MCP server). Registered with:
+  `claude mcp add --scope user --transport stdio unity-editor-mcp -- ~/.unity/bin/unity mcp --project-path ~/Documents/GitHub/ArtGameCollab2`
+  (`unity mcp configure claude-code --dry-run` prints the same command.)
+- Unity must be open with the project for it to connect.
 
-## Blender
-Official (Blender Lab, Blender 5.1+), preferred:
-1. Install the MCP add-on from the Blender Lab extensions page
-   (adds the Blender Lab repo, then the "MCP" add-on).
-2. In Blender, open the add-on's N-panel > Client Config and copy the Claude
-   Code command/JSON; run it with `--scope user`.
-
-Community fallback (older Blender): `ahujasid/blender-mcp`
-1. Install `uv`.
-2. Install `addon.py` from https://github.com/ahujasid/blender-mcp in Blender
-   (Edit > Preferences > Add-ons > Install from Disk), enable it.
-3. `claude mcp add --scope user blender -- uvx blender-mcp`
-4. In Blender: N-panel > BlenderMCP > Connect (port 9876).
-
-Note: Blender MCP can run arbitrary Python in Blender. Save before using it.
+## Blender: official Blender Lab MCP
+- Blender 5.2.3 LTS installed with `brew install --cask blender`.
+- Add-on "MCP" 1.0.3 (Blender Lab) from
+  `https://projects.blender.org/lab/blender_mcp/releases/download/v1.0.3/mcp-1.0.3.zip`,
+  installed with
+  `Blender --command extension install-file -r user_default --enable mcp-1.0.3.zip`.
+  Its bridge auto-starts when Blender opens (Preferences > Add-ons > MCP).
+- MCP server (`blender-mcp` from the same project, NOT the PyPI package of the
+  same name, which is the community one):
+  `claude mcp add --scope user --transport stdio blender -- /opt/homebrew/bin/uvx --from "git+https://projects.blender.org/lab/blender_mcp.git@v1.0.3#subdirectory=mcp" blender-mcp`
+- Blender must be open for it to connect.
+- Warning from Blender: the server runs LLM-generated Python in Blender with
+  no guards. Save work before using it.
 
 ## Workflow for models made in Blender
-- Export to `.glb`/`.fbx` into the right folder under `Assets/` (e.g.
-  `Assets/Koki (HeppiriRaid)/Models/`) and let Unity generate the `.meta`.
-- Only the exported model files go in the game repo; no `.blend` scratch
-  files or AI notes unless the user asks.
+- Export `.glb`/`.fbx` into `Assets/Koki (HeppiriRaid)/Models/` (or
+  `Assets/Public Assets/` if shared); let Unity generate the `.meta`.
+- No `.blend` scratch files or AI notes in the game repo unless asked.

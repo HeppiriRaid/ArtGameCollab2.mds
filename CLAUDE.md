@@ -4,8 +4,12 @@ This repo (`HeppiriRaid/ArtGameCollab2.mds`) holds all AI-related material for
 the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
 
 ## 1. Game repo gets game files only
-- In `christopherlcollins/ArtGameCollab2`, only add or change game files:
-  `Assets/`, `Packages/`, `ProjectSettings/`, and the project/solution files.
+- In `christopherlcollins/ArtGameCollab2`, only add or change game files.
+- Only create or edit files inside `Assets/Koki (HeppiriRaid)/` and
+  `Assets/Public Assets/`. Every other folder (classmates' folders, scenes,
+  `_SharedFiles`, `Settings`, `Packages/`, `ProjectSettings/`, etc.) belongs to
+  classmates: read it if needed, never create, edit, move or delete there.
+  Ask the user first if a change elsewhere seems necessary.
 - Never put `CLAUDE.md`, `.claude/`, AI notes, plans, memories, prompts or other
   AI docs in the game repo.
 
