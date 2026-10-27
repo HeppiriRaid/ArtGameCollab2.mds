@@ -26,9 +26,9 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
   package (~120 tools: scenes, prefabs, components, assets, animation,
   timeline, builds, captures, console, play mode). Without that package it
   shows 0 tools.
-- Installed 2026-10-27 with `unity pipeline install` (0.9.1-exp.1). This edits
-  `Packages/manifest.json` and `Packages/packages-lock.json`, which are shared
-  with classmates: NOT committed. Only commit them if the user says so.
+- Installed 2026-10-27 with `unity pipeline install` (0.9.1-exp.1). The user
+  committed the `Packages/manifest.json` / `packages-lock.json` change to the
+  game repo themselves (commit "7"), so classmates have it too.
 - Registered with:
   `claude mcp add --scope user --transport stdio unity-editor-mcp -- ~/.unity/bin/unity mcp --project-path ~/Documents/GitHub/ArtGameCollab2`
 - Authoring root (`get_root` / `set_root`) is set to
