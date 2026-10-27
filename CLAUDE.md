@@ -51,3 +51,13 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
 - Compare renders side by side with the references and list what differs
   before calling a model done.
 - Use real products only as reference; models use fictional branding.
+
+## 6. Scenes are built like a human would build them
+- Place everything in the scene at edit time so it is visible and editable in
+  the Hierarchy: level geometry, machines, props, lights, reflection probes,
+  post-processing volumes, UI canvases, audio sources, triggers.
+- Use prefabs (in Koki's `Prefabs/`) for repeated things, placed as prefab
+  instances. Runtime scripts may move, enable/disable and vary objects that
+  already exist, but must not spawn the level at Start.
+- Every scene gets reflection probes and a sensible lighting setup, and is
+  saved after each build step.
