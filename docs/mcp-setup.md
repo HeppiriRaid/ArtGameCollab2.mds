@@ -11,12 +11,18 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
 - Do not run `setup/cloud-setup.sh` on the Mac: it overwrites
   `~/.claude/settings.json` and `~/.claude/CLAUDE.md`. It is for cloud sessions only.
 
-## Unity: connected
+## Unity: connected (relay)
 - Package `com.unity.ai.assistant` 2.21.0-pre.2 is already in the game repo.
-- Uses the Unity CLI at `~/.unity/bin/unity` (the newer replacement for the
-  in-editor MCP server). Registered with:
-  `claude mcp add --scope user --transport stdio unity-editor-mcp -- ~/.unity/bin/unity mcp --project-path ~/Documents/GitHub/ArtGameCollab2`
-  (`unity mcp configure claude-code --dry-run` prints the same command.)
+- Uses the AI Assistant relay. Registered with:
+  `claude mcp add --scope user --transport stdio unity -- ~/.unity/relay/relay_mac_arm64.app/Contents/MacOS/relay_mac_arm64 --mcp`
+- The connection must be approved once in Unity: Edit > Project Settings > AI >
+  Unity MCP (done 2026-10-27).
+- Tools (7): `Unity_RunCommand`, `Unity_GetConsoleLogs`, `Unity_Camera_Capture`,
+  `Unity_SceneView_Capture2DScene`, `Unity_SceneView_CaptureMultiAngleSceneView`,
+  `Unity_AssetGeneration_GenerateAsset`, `Unity_AssetGeneration_GetModels`.
+- Do NOT use `~/.unity/bin/unity mcp` (what `unity mcp configure claude-code`
+  suggests): it only exposes commands from Unity's separate Pipeline package,
+  which this project doesn't have, so it shows 0 tools.
 - Unity must be open with the project for it to connect.
 
 ## Blender: official Blender Lab MCP
