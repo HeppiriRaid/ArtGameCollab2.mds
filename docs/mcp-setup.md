@@ -20,9 +20,21 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
 - Tools (7): `Unity_RunCommand`, `Unity_GetConsoleLogs`, `Unity_Camera_Capture`,
   `Unity_SceneView_Capture2DScene`, `Unity_SceneView_CaptureMultiAngleSceneView`,
   `Unity_AssetGeneration_GenerateAsset`, `Unity_AssetGeneration_GetModels`.
-- Do NOT use `~/.unity/bin/unity mcp` (what `unity mcp configure claude-code`
-  suggests): it only exposes commands from Unity's separate Pipeline package,
-  which this project doesn't have, so it shows 0 tools.
+
+## Unity: Pipeline tools (`unity-editor-mcp`)
+- `~/.unity/bin/unity mcp` serves the tools of the `com.unity.pipeline`
+  package (~120 tools: scenes, prefabs, components, assets, animation,
+  timeline, builds, captures, console, play mode). Without that package it
+  shows 0 tools.
+- Installed 2026-10-27 with `unity pipeline install` (0.9.1-exp.1). This edits
+  `Packages/manifest.json` and `Packages/packages-lock.json`, which are shared
+  with classmates: NOT committed. Only commit them if the user says so.
+- Registered with:
+  `claude mcp add --scope user --transport stdio unity-editor-mcp -- ~/.unity/bin/unity mcp --project-path ~/Documents/GitHub/ArtGameCollab2`
+- Authoring root (`get_root` / `set_root`) is set to
+  `Assets/Koki (HeppiriRaid)`, so Pipeline file tools stay in Koki's folder.
+  Switch to `Assets/Public Assets` only while working there, then switch back.
+  Never set it to `Assets`. The setting is not stored in tracked files.
 - Unity must be open with the project for it to connect.
 
 ## Blender: official Blender Lab MCP

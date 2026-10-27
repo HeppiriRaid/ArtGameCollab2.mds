@@ -10,6 +10,10 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   `_SharedFiles`, `Settings`, `Packages/`, `ProjectSettings/`, etc.) belongs to
   classmates: read it if needed, never create, edit, move or delete there.
   Ask the user first if a change elsewhere seems necessary.
+- Unity Pipeline authoring root stays at `Assets/Koki (HeppiriRaid)` (or
+  `Assets/Public Assets` while working there). Never set it to `Assets`.
+- The Pipeline package changes in `Packages/` are local only: don't commit
+  them unless the user says so.
 - Never put `CLAUDE.md`, `.claude/`, AI notes, plans, memories, prompts or other
   AI docs in the game repo.
 
