@@ -108,22 +108,22 @@ def build_controls(m, col, root):
     fh = H - Z_PANEL - 0.03
     add("Face", L.box_bm(W - 0.03, 0.004, fh, (0, -0.002, 0)), m["panel"], col, frame, bev=(0.002, 2))
     # LED readout window with green digits.
-    add("LEDWindow", L.box_bm(0.15, 0.002, 0.06, (-0.21, -0.005, 0.03)), m["led_off"], col, frame)
-    L.text_mesh("LEDDigits", "28", 0.045, m["led"], col, frame, bold=True, location=(-0.21, -0.0065, 0.03))
-    L.text_mesh("LEDLabel", "MINUTES REMAINING", 0.0075, m["print"], col, frame, location=(-0.21, -0.0045, -0.012))
+    add("LEDWindow", L.box_bm(0.15, 0.002, 0.06, (-0.21, -0.0055, 0.03)), m["led_off"], col, frame)
+    L.text_mesh("LEDDigits", "28", 0.045, m["led"], col, frame, bold=True, location=(-0.21, -0.009, 0.03))
+    L.text_mesh("LEDLabel", "MINUTES REMAINING", 0.0075, m["print"], col, frame, location=(-0.21, -0.0065, -0.012))
     labels = ["HOT", "WARM", "COLD", "START"]
     for i, lab in enumerate(labels):
         x = -0.06 + i * 0.05
         add(f"Button_{lab}", L.rounded_plate_bm(0.034, 0.022, 0.006, 0.006, (x, -0.004, 0.035), 4), m["button"],
             col, frame, bev=(0.0015, 2))
-        L.text_mesh(f"ButtonLabel_{lab}", lab, 0.0075, m["print"], col, frame, location=(x, -0.0045, 0.008))
+        L.text_mesh(f"ButtonLabel_{lab}", lab, 0.0075, m["print"], col, frame, location=(x, -0.0065, 0.008))
     # Card reader on the right.
     add("Reader", L.rounded_plate_bm(0.09, 0.11, 0.01, 0.018, (0.27, -0.004, 0.0), 6), m["handle"], col, frame,
         bev=(0.002, 2))
     add("ReaderSlot", L.box_bm(0.065, 0.004, 0.006, (0.27, -0.023, 0.03)), m["gap"], col, frame)
     add("ReaderScreen", L.box_bm(0.05, 0.002, 0.025, (0.27, -0.023, -0.012)), m["led_off"], col, frame)
     L.text_mesh("PanelBrand", "aqualux  COMMERCIAL", 0.011, m["print"], col, frame, bold=True,
-                location=(-0.02, -0.0045, -0.05))
+                location=(-0.02, -0.0065, -0.05))
 
 
 def build_door(m, col, root):
@@ -198,7 +198,7 @@ STEEL_GRIME = dict(seed=17, floor=0.0, floor_band=0.35, floor_dark=0.7, stain=0.
 
 def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, y_off=0.0, rot=0.0, header=None):
     """A flat vinyl sticker on the front panel with a few lines of text."""
-    y = FRONT - 0.0145 - 0.0004 - y_off
+    y = FRONT - 0.0145 - 0.0015 - y_off      # >= 1.5 mm off the panel (no z-fighting)
     bm = L.rounded_plate_bm(w, h, min(w, h) * 0.08, 0.0006, (x, y, z), 4)
     if rot:
         bmesh.ops.rotate(bm, verts=bm.verts, cent=(x, y, z), matrix=Matrix.Rotation(math.radians(rot), 3, "Y"))
@@ -206,10 +206,10 @@ def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, y_
     L.grime(o, seed=hash(name) % 97, floor=0.0, floor_band=0.4, floor_dark=0.8, stain=0.25, stain_scale=0.05)
     zt = z + h / 2 - size * 1.4
     if header:
-        L.text_mesh(name + "_H", header, size * 1.3, ink, col, root, bold=True, location=(x, y - 0.0007, zt))
+        L.text_mesh(name + "_H", header, size * 1.3, ink, col, root, bold=True, location=(x, y - 0.0012, zt))
         zt -= size * 2.0
     for i, t in enumerate(lines):
-        L.text_mesh(f"{name}_{i}", t, size, ink, col, root, location=(x, y - 0.0007, zt - i * size * 1.6))
+        L.text_mesh(f"{name}_{i}", t, size, ink, col, root, location=(x, y - 0.0012, zt - i * size * 1.6))
     return o
 
 
@@ -221,12 +221,12 @@ def build_details(m, col, root):
                    "4 SELECT TEMP", "5 TAP ROOM KEY", "  OR CARD", "6 PRESS START", "", "REMOVE CLOTHES",
                    "PROMPTLY"], size=0.0052, ink=m["ink"])
     # Caution label, lower left.
-    y = FRONT - 0.0145 - 0.0004
+    y = FRONT - 0.0145 - 0.0015
     tri = bmesh.new()
     v = [tri.verts.new((-0.335, y, 0.28)), tri.verts.new((-0.285, y, 0.28)), tri.verts.new((-0.31, y, 0.323))]
     tri.faces.new(v)
     add("CautionTri", tri, m["sticker_yellow"], col, root)
-    L.text_mesh("CautionMark", "!", 0.026, m["ink"], col, root, bold=True, location=(-0.31, y - 0.0007, 0.293))
+    L.text_mesh("CautionMark", "!", 0.026, m["ink"], col, root, bold=True, location=(-0.31, y - 0.0012, 0.293))
     sticker("Caution", 0.08, 0.05, -0.31, 0.24, m["sticker_yellow"], col, root, header="CAUTION",
             lines=["DO NOT OPEN", "DOOR WHILE", "RUNNING"], size=0.0045, ink=m["ink"])
     # Price sticker, top left of the front.
@@ -238,14 +238,14 @@ def build_details(m, col, root):
     sticker("TapKey", 0.07, 0.035, 0.31, 0.95, m["sticker_blue"], col, root, header="TAP KEY",
             lines=["▲ READER"], size=0.006, ink=m["ink_white"])
     # Rating plate, key lock on the service panel, leftover tape from an old note.
-    add("SerialPlate", L.box_bm(0.07, 0.0012, 0.035, (0.29, y - 0.0003, 0.1)), m["plate"], col, root)
+    add("SerialPlate", L.box_bm(0.07, 0.0012, 0.035, (0.29, y - 0.0006, 0.1)), m["plate"], col, root)
     for i, t in enumerate(["MODEL WX450", "SN 2610-0447", "208-240V 60Hz"]):
-        L.text_mesh(f"Serial_{i}", t, 0.0042, m["ink"], col, root, location=(0.29, y - 0.0012, 0.11 - i * 0.008))
+        L.text_mesh(f"Serial_{i}", t, 0.0042, m["ink"], col, root, location=(0.29, y - 0.0025, 0.11 - i * 0.008))
     add("KeyLock", L.cylinder_bm(0.012, 0.01, 24, (-0.3, y - 0.004, 0.09), axis="Y"), m["polished"], col, root,
         bev=(0.002, 2, 30))
     add("KeyHole", L.box_bm(0.0025, 0.002, 0.009, (-0.3, y - 0.0095, 0.09)), m["gap"], col, root)
     for i, (x, z, r) in enumerate(((-0.05, 0.965, 3.0), (0.12, 0.97, -2.0))):
-        bm = L.box_bm(0.06, 0.0006, 0.014, (x, y - 0.0002, z))
+        bm = L.box_bm(0.06, 0.0006, 0.014, (x, y + 0.0004, z))
         bmesh.ops.rotate(bm, verts=bm.verts, cent=(x, y, z), matrix=Matrix.Rotation(math.radians(r), 3, "Y"))
         add(f"TapeResidue_{i}", bm, m["tape"], col, root)
 
@@ -259,9 +259,9 @@ def build_details(m, col, root):
     add("SoapNotch", L.box_bm(0.05, 0.012, 0.004, (-0.21, -0.025, zt + 0.009)), m["gap"], col, root)
     add("SoapHinge", L.cylinder_bm(0.005, 0.22, 16, (-0.21, 0.145, zt + 0.005), axis="X"), m["polished"], col, root)
     L.text_mesh("SoapLabel", "SOAP • BLEACH • SOFTENER", 0.0085, m["ink"], col, root,
-                location=(-0.21, 0.04, zt + 0.0092), rotation=(0, 0, 0))
+                location=(-0.21, 0.04, zt + 0.0105), rotation=(0, 0, 0))
     for i, (x, w, ln) in enumerate(((-0.27, 0.03, 0.05), (-0.2, 0.018, 0.035), (-0.14, 0.04, 0.025))):
-        add(f"Residue_{i}", L.rounded_plate_bm(w, ln, w * 0.4, 0.0008, (x, -0.02 - ln / 2, zt + 0.0006), 4),
+        add(f"Residue_{i}", L.rounded_plate_bm(w, ln, w * 0.4, 0.0008, (x, -0.02 - ln / 2, zt + 0.0015), 4),
             m["residue"], col, root)
         bpy.data.objects[f"Residue_{i}"].rotation_euler = (math.radians(-90), 0, 0)
 

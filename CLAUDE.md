@@ -71,3 +71,11 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   surface (text >= 2.5 mm), so depth precision at game distances can't flicker.
 - Before calling a scene done, look for flicker at corners, wall joins, floor
   edges and on decals from a few metres away.
+
+## 8. No implausible shadows
+- Lighting must make physical sense in Play mode, not just in the editor.
+- Don't toggle shadow casting on/off at runtime by distance (shadows pop and
+  smear), and don't cast shadows from very wide spot lights (shadow maps stretch
+  into blobs). Many soft overhead sources (fluorescent troffers) cast no
+  realtime shadows; ground objects with soft contact shadows instead.
+- Check shadows by walking around in Play mode before calling it done.

@@ -72,7 +72,7 @@ def add(name, bm, mat, col, parent, bev=None, uv=None, texel=0.5, smooth=35.0, d
 
 
 def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, header=None, rot=0.0):
-    y = FRONT - 0.0145 - 0.0004
+    y = FRONT - 0.0145 - 0.0015      # >= 1.5 mm off the panel (no z-fighting)
     bm = L.rounded_plate_bm(w, h, min(w, h) * 0.08, 0.0006, (x, y, z), 4)
     if rot:
         bmesh.ops.rotate(bm, verts=bm.verts, cent=(x, y, z), matrix=Matrix.Rotation(math.radians(rot), 3, "Y"))
@@ -80,10 +80,10 @@ def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, he
     L.grime(o, seed=hash(name) % 97, floor=0.0, floor_band=0.4, floor_dark=0.8, stain=0.25, stain_scale=0.05)
     zt = z + h / 2 - size * 1.4
     if header:
-        L.text_mesh(name + "_H", header, size * 1.3, ink, col, root, bold=True, location=(x, y - 0.0007, zt))
+        L.text_mesh(name + "_H", header, size * 1.3, ink, col, root, bold=True, location=(x, y - 0.0012, zt))
         zt -= size * 2.0
     for i, t in enumerate(lines):
-        L.text_mesh(f"{name}_{i}", t, size, ink, col, root, location=(x, y - 0.0007, zt - i * size * 1.6))
+        L.text_mesh(f"{name}_{i}", t, size, ink, col, root, location=(x, y - 0.0012, zt - i * size * 1.6))
 
 
 def build_cabinet(m, col, root):
@@ -106,8 +106,8 @@ def build_cabinet(m, col, root):
     for i, (x, lab) in enumerate(((-0.24, "UPPER"), (0.0, "LOWER"))):
         add(f"LED_{lab}", L.box_bm(0.11, 0.002, 0.04, (x, y - 0.0065, zc + 0.006)), m["led_off"], col, root)
         L.text_mesh(f"LEDDigits_{lab}", "12" if i == 0 else "00", 0.03, m["led"], col, root, bold=True,
-                    location=(x, y - 0.008, zc + 0.006))
-        L.text_mesh(f"LEDLabel_{lab}", lab + "  MIN", 0.0075, m["print"], col, root, location=(x, y - 0.0068, zc - 0.028))
+                    location=(x, y - 0.0102, zc + 0.006))
+        L.text_mesh(f"LEDLabel_{lab}", lab + "  MIN", 0.0075, m["print"], col, root, location=(x, y - 0.0085, zc - 0.028))
     add("Reader", L.rounded_plate_bm(0.08, 0.07, 0.01, 0.015, (0.27, y - 0.006, zc), 6), m["handle"], col, root,
         bev=(0.002, 2))
     add("ReaderSlot", L.box_bm(0.06, 0.004, 0.005, (0.27, y - 0.0215, zc + 0.012)), m["gap"], col, root)

@@ -65,6 +65,9 @@ def materials():
                               vertex_color=True),
         "galv": L.material("Galvanized", base=(0.55, 0.56, 0.56), metallic=0.9, roughness=0.45),
         "brass": L.material("Brass", base=(0.75, 0.55, 0.25), metallic=1.0, roughness=0.3),
+        "valve_blue": L.material("Valve_Blue", base=(0.05, 0.2, 0.6), roughness=0.4),
+        "hose": L.material("Hose_Braided", base=(0.6, 0.6, 0.6), metallic=0.8, roughness=0.45, tex="steel_brushed",
+                           normal_strength=1.0),
         "clock_face": L.material("Clock_Face", base=(0.86, 0.85, 0.8), roughness=0.3),
         "sign": L.material("Sign_Plate", base=(0.82, 0.82, 0.8), roughness=0.4),
         "extinguisher": L.material("Extinguisher_Red", base=(0.6, 0.03, 0.02), roughness=0.25, coat=0.8),
@@ -99,7 +102,7 @@ def build_floor(m, col, root):
     floor = add("Floor", L.grid_bm(WID, LEN, 0.5, (-HW, -HL, 0), (1, 0, 0), (0, 1, 0)), m["floor"], col, root,
                 uv="box", texel=2.5, dirt=dict(seed=1, floor=-10, stain=0.45, stain_scale=2.2))
     for i, x in enumerate((-3.75, 3.75)):
-        add(f"AisleLine_{i}", L.box_bm(0.08, LEN, 0.002, (x, 0, 0.001)), m["line"], col, root,
+        add(f"AisleLine_{i}", L.box_bm(0.08, LEN, 0.003, (x, 0, 0.0025)), m["line"], col, root,
             dirt=dict(seed=5 + i, floor=-10, stain=0.6, stain_scale=0.5))
     for i, y in enumerate((-6.0, 0.0, 6.0)):
         add(f"DrainPit_{i}", L.box_bm(0.3, 0.3, 0.06, (0, y, -0.03), skip=("+z",)), m["plenum"], col, root)
@@ -110,7 +113,7 @@ def build_floor(m, col, root):
     return floor
 
 
-def wall_run(m, col, root, name, x, y0, y1, facing, seed, z0=0.0, z1=HGT):
+def wall_run(m, col, root, name, x, y0, y1, facing, seed, z0=0.0, z1=HGT, ext_end=0.0):
     """One wall strip at x between y0..y1: cove, tile wainscot, cap, plaster."""
     sx = 1 if facing == "+x" else -1          # normal direction
     au, av = Vector((0, 1, 0)), Vector((0, 0, 1))
@@ -124,21 +127,24 @@ def wall_run(m, col, root, name, x, y0, y1, facing, seed, z0=0.0, z1=HGT):
         uv="box", texel=1.0, dirt=wd)
     add(f"{name}_Plaster", L.grid_bm(length, z1 - WAINSCOT, 0.4, (x, y0, WAINSCOT), au, av), m["plaster"], col,
         root, uv="box", texel=2.0, dirt=wd)
-    yc = (y0 + y1) / 2
-    add(f"{name}_Cap", L.box_bm(0.025, length, 0.03, (x + sx * 0.012, yc, WAINSCOT)), m["cap"], col, root,
+    # Trim runs ext_end past the far end so its end face hides inside the partition
+    # instead of sitting flush on the partition's face (z-fighting).
+    t0, t1 = min(y0, y1), max(y0, y1) + ext_end
+    yc, tlen = (t0 + t1) / 2, t1 - t0
+    add(f"{name}_Cap", L.box_bm(0.025, tlen, 0.03, (x + sx * 0.012, yc, WAINSCOT)), m["cap"], col, root,
         bev=(0.008, 3), dirt=wd)
     if z0 == 0.0:
-        add(f"{name}_Cove", L.box_bm(0.012, length, 0.1, (x + sx * 0.006, yc, 0.05)), m["cove"], col, root,
+        add(f"{name}_Cove", L.box_bm(0.012, tlen, 0.1, (x + sx * 0.006, yc, 0.05)), m["cove"], col, root,
             uv="box", bev=(0.003, 2))
 
 
 def build_walls(m, col, root):
     # -X wall (washers), continuous.
-    wall_run(m, col, root, "WallW", -HW, -HL, HL - PART_T / 2, "+x", seed=11)
+    wall_run(m, col, root, "WallW", -HW, -HL, HL - PART_T / 2, "+x", seed=11, ext_end=0.04)
     # +X wall (dryers) with the service door opening.
     d0, d1 = SIDE_DOOR_Y - SIDE_DOOR_W / 2, SIDE_DOOR_Y + SIDE_DOOR_W / 2
     wall_run(m, col, root, "WallE_a", HW, -HL, d0, "-x", seed=12)
-    wall_run(m, col, root, "WallE_b", HW, d1, HL - PART_T / 2, "-x", seed=13)
+    wall_run(m, col, root, "WallE_b", HW, d1, HL - PART_T / 2, "-x", seed=13, ext_end=0.04)
     wall_run(m, col, root, "WallE_over", HW, d0, d1, "-x", seed=14, z0=SIDE_DOOR_H)
     # Pilasters.
     for i, y in enumerate(PIL_Y):
@@ -150,7 +156,7 @@ def build_walls(m, col, root):
             add(f"Pilaster_{side}{i}_Plaster", L.box_bm(PIL_D, PIL_W, HGT - WAINSCOT, (x, y, (HGT + WAINSCOT) / 2),
                                                         skip=("-z", "+z")),
                 m["plaster"], col, root, uv="box", texel=2.0, dirt=wd)
-            add(f"Pilaster_{side}{i}_Cap", L.box_bm(PIL_D + 0.03, PIL_W + 0.03, 0.03, (x, y, WAINSCOT)), m["cap"],
+            add(f"Pilaster_{side}{i}_Cap", L.box_bm(PIL_D + 0.03, PIL_W + 0.03, 0.036, (x, y, WAINSCOT)), m["cap"],
                 col, root, bev=(0.008, 3), dirt=wd)
 
 
@@ -169,10 +175,12 @@ def build_partition(m, col, root):
                 m["tile"], col, root, uv="box", texel=1.0, dirt=seg)
             add(f"Part{face}_{part}_Plaster", L.grid_bm(side_w, HGT - WAINSCOT, 0.4, (x0, yy, WAINSCOT), au, (0, 0, 1)),
                 m["plaster"], col, root, uv="box", texel=2.0, dirt=seg)
-            xc = (xa + xb) / 2
-            add(f"Part{face}_{part}_Cap", L.box_bm(side_w, 0.025, 0.03, (xc, yy + facing * 0.012, WAINSCOT)),
+            # Outer ends run 4 cm past the side walls (hidden outside the room).
+            xa2, xb2 = (xa - 0.04, xb) if part == "L" else (xa, xb + 0.04)
+            xc, trim_w = (xa2 + xb2) / 2, xb2 - xa2
+            add(f"Part{face}_{part}_Cap", L.box_bm(trim_w, 0.025, 0.03, (xc, yy + facing * 0.012, WAINSCOT)),
                 m["cap"], col, root, bev=(0.008, 3))
-            add(f"Part{face}_{part}_Cove", L.box_bm(side_w, 0.012, 0.1, (xc, yy + facing * 0.006, 0.05)),
+            add(f"Part{face}_{part}_Cove", L.box_bm(trim_w, 0.012, 0.1, (xc, yy + facing * 0.006, 0.05)),
                 m["cove"], col, root, uv="box")
         x0 = -DOOR_W / 2 if facing < 0 else DOOR_W / 2
         add(f"Part{face}_Over", L.grid_bm(DOOR_W, HGT - DOOR_H, 0.4, (x0, yy, DOOR_H), au, (0, 0, 1)),
@@ -217,11 +225,11 @@ def build_partition(m, col, root):
         add(f"Exit{face}_Body", L.box_bm(0.36, 0.08, 0.18, (0, yy + s * 0.04, DOOR_H + 0.2)), m["exit_body"], col,
             root, bev=(0.01, 2))
         L.text_mesh(f"Exit{face}_Text", "EXIT", 0.11, m["exit"], col, root, bold=True,
-                    location=(0, yy + s * 0.0805, DOOR_H + 0.2),
+                    location=(0, yy + s * 0.083, DOOR_H + 0.2),
                     rotation=(math.radians(90), 0, 0 if s < 0 else math.pi))
         add(f"BayPlate{face}", L.box_bm(0.9, 0.01, 0.22, (-1.6, yy + s * 0.005, 2.55)), m["sign"], col, root,
             bev=(0.004, 2))
-        sl = slot(f"SignSlot_{face}", col, root, (-1.6, yy + s * 0.0115, 2.55), 0 if s < 0 else 180)
+        sl = slot(f"SignSlot_{face}", col, root, (-1.6, yy + s * 0.0125, 2.55), 0 if s < 0 else 180)
 
 
 def build_side_door(m, col, root):
@@ -265,7 +273,8 @@ def build_side_door(m, col, root):
         m["plaster"], col, root, uv="box", texel=2.0, dirt=vd)
     add("Vest_WallN", L.grid_bm(vx1 - vx0 - 1.2, SIDE_DOOR_H + 0.25, 0.4, (vx0, vy1, 0), (1, 0, 0), (0, 0, 1)),
         m["plaster"], col, root, uv="box", texel=2.0, dirt=vd)
-    add("Vest_WallBack", L.grid_bm(1.2, SIDE_DOOR_H + 0.25, 0.4, (vx0, vy1, 0), (0, -1, 0), (0, 0, 1)),
+    # Sits 12 cm behind the room's tiled wall (never in the same plane: z-fighting).
+    add("Vest_WallBack", L.grid_bm(1.2, SIDE_DOOR_H + 0.25, 0.4, (vx0 + 0.12, vy1, 0), (0, -1, 0), (0, 0, 1)),
         m["plaster"], col, root, uv="box", texel=2.0, dirt=vd)
     slot("SideDoorTrigger", col, root, (HW + 1.9, y + 0.6, 1.0), 0)
 
@@ -377,27 +386,55 @@ def build_wall_details(m, col, root):
             bev=(0.003, 2))
 
 
-def machine_slots(col, root):
-    """Washers on the west wall, dryers on the east wall, grouped between pilasters."""
-    segments = [(-HL + 0.25, PIL_Y[0] - PIL_W / 2), (PIL_Y[0] + PIL_W / 2, PIL_Y[1] - PIL_W / 2),
+CURB_H = 0.2                 # raised tiled plinth under the washer bank
+WASHER_W, WASHER_D = 0.76, 0.724
+DRYER_W, DRYER_D = 0.792, 0.96
+
+
+def machine_slots(col, root, m=None):
+    """Washers on a raised curb along the west wall, stack dryers along the east
+    wall, both as continuous banks with no gaps (like a real laundromat), grouped
+    between the pilasters."""
+    m = m or materials()
+    segments = [(-HL + PART_T / 2, PIL_Y[0] - PIL_W / 2), (PIL_Y[0] + PIL_W / 2, PIL_Y[1] - PIL_W / 2),
                 (PIL_Y[1] + PIL_W / 2, PIL_Y[2] - PIL_W / 2), (PIL_Y[2] + PIL_W / 2, PIL_Y[3] - PIL_W / 2),
-                (PIL_Y[3] + PIL_W / 2, HL - PART_T / 2 - 0.15)]
-    pitch = 1.3
+                (PIL_Y[3] + PIL_W / 2, HL - PART_T / 2)]
+    wx = -HW + 0.06 + WASHER_D / 2
+    curb_front = wx + WASHER_D / 2 + 0.06
     w = d = 0
     for si, (a, b) in enumerate(segments):
-        count = int((b - a) // pitch)
-        start = (a + b) / 2 - (count - 1) * pitch / 2
-        for k in range(count):
-            y = start + k * pitch
-            slot(f"WasherSlot_{w:02d}", col, root, (-HW + 0.42, y, 0), 90)
+        # Curb: back runs 5 cm into the wall, ends 3 cm into the pilasters/partition,
+        # so none of its faces lies flush on another surface.
+        ca, cb = a - 0.03, b + 0.03
+        curb = L.box_bm(curb_front + HW + 0.05, cb - ca, CURB_H, ((curb_front - HW - 0.05) / 2, (ca + cb) / 2, CURB_H / 2))
+        add(f"Curb_{si}", curb, m["tile"], col, root, uv="box", texel=1.0, bev=(0.008, 3),
+            dirt=dict(seed=140 + si, floor=0.0, floor_band=0.25, floor_dark=0.55, stain=0.4, stain_scale=0.5))
+        n = int((b - a - 0.04) // WASHER_W)
+        start = (a + b) / 2 - (n - 1) * WASHER_W / 2
+        for k in range(n):
+            y = start + k * WASHER_W
+            slot(f"WasherSlot_{w:02d}", col, root, (wx, y, CURB_H), 90)
+            # Hot / cold supply valves on the wall, braided hoses down behind the machine.
+            for j, (dy, mat) in enumerate(((-0.12, "pipe_red"), (0.12, "valve_blue"))):
+                vy = y + dy
+                add(f"Valve_{w:02d}_{j}", L.cylinder_bm(0.018, 0.08, 16, (-HW + 0.04, vy, 1.72), axis="X"), m["galv"],
+                    col, root)
+                add(f"ValveHandle_{w:02d}_{j}", L.box_bm(0.012, 0.07, 0.016, (-HW + 0.09, vy, 1.72)), m[mat], col, root,
+                    bev=(0.004, 2))
+                add(f"Hose_{w:02d}_{j}", L.cylinder_bm(0.011, 1.72 - CURB_H - 1.15, 10,
+                                                       (-HW + 0.06, vy, (1.72 + CURB_H + 1.15) / 2)),
+                    m["hose"], col, root)
             w += 1
-            if si == 4:
-                continue          # service door segment on the east wall
-            slot(f"DryerSlot_{d:02d}", col, root, (HW - 0.5, y, 0), -90)
+        if si == 4:
+            continue          # service door segment on the east wall
+        n = int((b - a - 0.04) // DRYER_W)
+        start = (a + b) / 2 - (n - 1) * DRYER_W / 2
+        for k in range(n):
+            slot(f"DryerSlot_{d:02d}", col, root, (HW - 0.04 - DRYER_D / 2, start + k * DRYER_W, 0), -90)
             d += 1
     # Loose props along the aisle: carts / tables.
     for i, y in enumerate((-7.5, -1.0, 5.5)):
-        slot(f"PropSlot_{i}", col, root, (-2.6 if i % 2 else 2.6, y, 0), 0)
+        slot(f"PropSlot_{i}", col, root, (-2.2 if i % 2 else 2.2, y, 0), 0)
     return w, d
 
 
@@ -461,7 +498,7 @@ def build():
     build_ceiling(m, col, root)
     build_pipes(m, col, root)
     build_wall_details(m, col, root)
-    w, d = machine_slots(col, root)
+    w, d = machine_slots(col, root, m)
     lookdev_interior()
     dg = bpy.context.evaluated_depsgraph_get()
     tris = 0
