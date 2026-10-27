@@ -25,11 +25,16 @@ Both servers are registered at **user scope** in `~/.claude.json`, never with a
   `https://projects.blender.org/lab/blender_mcp/releases/download/v1.0.3/mcp-1.0.3.zip`,
   installed with
   `Blender --command extension install-file -r user_default --enable mcp-1.0.3.zip`.
-  Its bridge auto-starts when Blender opens (Preferences > Add-ons > MCP).
+  Its bridge auto-starts when Blender opens (Preferences > Add-ons > MCP) and
+  listens on `localhost:9876`.
+- The bridge only starts if Preferences > System > **Allow Online Access** is
+  on (off by default). Turned on and saved to user prefs. If it stops working,
+  check that setting first: `lsof -nP -iTCP:9876 -sTCP:LISTEN`.
 - MCP server (`blender-mcp` from the same project, NOT the PyPI package of the
   same name, which is the community one):
   `claude mcp add --scope user --transport stdio blender -- /opt/homebrew/bin/uvx --from "git+https://projects.blender.org/lab/blender_mcp.git@v1.0.3#subdirectory=mcp" blender-mcp`
-- Blender must be open for it to connect.
+- Registered and verified 2026-10-27: `claude mcp list` shows it connected
+  and Blender listens on 9876. Blender must be open for it to work.
 - Warning from Blender: the server runs LLM-generated Python in Blender with
   no guards. Save work before using it.
 
