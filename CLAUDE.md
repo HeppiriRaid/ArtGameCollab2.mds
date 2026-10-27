@@ -79,3 +79,12 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   into blobs). Many soft overhead sources (fluorescent troffers) cast no
   realtime shadows; ground objects with soft contact shadows instead.
 - Check shadows by walking around in Play mode before calling it done.
+
+## 9. Craftsmanship: never simplify a part into one shape
+- Model objects the way they are manufactured: break every component into its
+  real sub-parts (trims, bezels, retainers, gaskets, fasteners, seams, folds,
+  vents, hinges, latches, labels) at their real proportions.
+- Study references close up for each sub-part before modelling it; if a detail
+  is visible in the reference at gameplay distance, it must exist in the model.
+- Small accurate details accumulated everywhere are the goal ("master work, not
+  slop"). Budget triangles by merging/LOD, not by skipping detail.

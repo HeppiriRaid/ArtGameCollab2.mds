@@ -27,29 +27,28 @@ BEZEL_R = 0.255
 GLASS_R = 0.2
 DRUM_R = 0.34
 CEILING = 3.2
-STEEL_GRIME = dict(seed=23, floor=0.0, floor_band=0.35, floor_dark=0.7, stain=0.22, stain_scale=0.25)
+STEEL_GRIME = dict(seed=23, floor=0.0, floor_band=0.45, floor_dark=0.5, stain=0.32, stain_scale=0.2, drip=0.25)
 
 
 def materials():
     return {
-        "steel": L.material("Stainless_Satin", metallic=1.0, tex="stainless_satin", normal_strength=0.35,
+        "steel": L.material("Stainless_Aged", metallic=1.0, tex="stainless_aged", normal_strength=0.35,
                             vertex_color=True),
         "polished": L.material("Stainless_Polished", base=(0.9, 0.9, 0.91), metallic=1.0, roughness=0.09),
-        "panel": L.material("Panel_BlackGloss", base=(0.012, 0.012, 0.014), roughness=0.16, coat=1.0),
-        "handle": L.material("Handle_Black", base=(0.02, 0.02, 0.022), roughness=0.4, tex="plastic_matte",
-                             normal_strength=0.3),
+        "panel": L.material("Panel_BlackAged", tex="plastic_black_aged", normal_strength=0.4, coat=0.6),
+        "handle": L.material("Handle_BlackWorn", tex="plastic_black_aged", normal_strength=0.5),
         "led": L.material("LED_Red", base=(0.8, 0.1, 0.05), emission=(1.0, 0.15, 0.06), emission_strength=3.0),
         "led_off": L.material("LED_Dark", base=(0.01, 0.04, 0.02), roughness=0.1, coat=1.0),
         "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.45, ior=1.52),
         "galv": L.material("Drum_Galvanized", base=(0.6, 0.61, 0.6), metallic=1.0, tex="drum_perforated",
                            normal_strength=1.0),
-        "rubber": L.material("Rubber_Black", base=(0.018, 0.018, 0.018), tex="rubber", normal_strength=0.5),
+        "rubber": L.material("Rubber_Aged", tex="rubber_aged", normal_strength=0.6),
         "gap": L.material("Gap_Dark", base=(0.03, 0.03, 0.032), roughness=0.6),
         "duct": L.material("Duct_Galvanized", base=(0.5, 0.51, 0.5), metallic=0.9, roughness=0.5, vertex_color=True),
         "foil": L.material("Duct_Foil", base=(0.75, 0.75, 0.74), metallic=0.9, roughness=0.35, vertex_color=True),
-        "sticker": L.material("Sticker_White", base=(0.88, 0.87, 0.82), roughness=0.55, vertex_color=True),
-        "sticker_yellow": L.material("Sticker_Yellow", base=(0.95, 0.75, 0.05), roughness=0.5),
-        "sticker_red": L.material("Sticker_Red", base=(0.7, 0.05, 0.04), roughness=0.45),
+        "sticker": L.material("Sticker_WhiteWorn", tex="sticker_aged", vertex_color=True),
+        "sticker_yellow": L.material("Sticker_YellowWorn", tex="sticker_aged", tint=(1.0, 0.78, 0.08)),
+        "sticker_red": L.material("Sticker_RedWorn", tex="sticker_aged", tint=(0.75, 0.07, 0.05)),
         "ink": L.material("Ink_Black", base=(0.02, 0.02, 0.02), roughness=0.6),
         "ink_white": L.material("Ink_White", base=(0.95, 0.95, 0.95), roughness=0.5),
         "print": L.material("Print_White", base=(0.88, 0.89, 0.9), roughness=0.35),

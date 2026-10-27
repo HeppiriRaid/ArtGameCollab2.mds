@@ -160,6 +160,10 @@ def mesh_object(name, bm, mat=None, smooth_angle=35.0):
     for poly in me.polygons:
         poly.use_smooth = True
     me.set_sharp_from_angle(angle=math.radians(smooth_angle))
+    # White "Col" layer by default: materials multiply it in, grime() darkens it.
+    col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+    col.data.foreach_set("color", [1.0] * (4 * len(col.data)))
+    me.color_attributes.active_color = col
     return bpy.data.objects.new(name, me)
 
 
@@ -518,7 +522,7 @@ def merged_copy(col_name, keep_separate=(), tmp_name="_Export"):
     return tmp_name, out
 
 
-def export_glb(col_name, path, keep_separate=None):
+def export_glb(col_name, path, keep_separate=None, image_format="JPEG"):
     """Export one collection as .glb with modifiers applied and textures embedded.
 
     With keep_separate (a tuple, may be empty) the prop is first merged by
@@ -540,7 +544,7 @@ def export_glb(col_name, path, keep_separate=None):
         export_normals=True,
         export_tangents=True,
         export_materials="EXPORT",
-        export_image_format="JPEG",      # ~4x smaller than PNG; no alpha textures are used
+        export_image_format=image_format,   # JPEG is ~4x smaller; use "AUTO" to keep PNG alpha
         export_jpeg_quality=88,
         export_yup=True,
         export_extras=False,

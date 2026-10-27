@@ -259,50 +259,38 @@ def _lump(bm, scale, amount, seed=0.0):
 
 
 def laundry_basket():
-    """Oval plastic laundry basket with slotted sides and clothes spilling over the rim."""
+    """Rectangular plastic laundry basket: tapered, slotted sides, hand holes, clothes
+    heaped above the rim with a sleeve hanging over."""
     col, root = start("LaundryBasket")
     plastic = L.material("Basket_Blue", base=(0.12, 0.3, 0.6), roughness=0.4, tex="plastic_matte", normal_strength=0.5,
                          vertex_color=True)
+    shadow = L.material("Basket_SlotShadow", base=(0.01, 0.015, 0.03), roughness=0.8)
     cloth = L.material("Cloth_Mixed", base=(0.62, 0.55, 0.5), tex="towel", normal_strength=1.0, vertex_color=True)
-    W, D, H = 0.58, 0.42, 0.27
-    # Tapered oval tub: lathe-like ring of quads, open top, with slot holes as dark inset plates.
-    bm = bmesh.new()
-    rings = []
-    for k, (z, s_) in enumerate(((0.0, 0.86), (0.02, 0.9), (H - 0.03, 1.0), (H, 1.04))):
-        ring = []
-        for i in range(40):
-            a_ = 2 * math.pi * i / 40
-            ring.append(bm.verts.new((math.cos(a_) * W / 2 * s_, math.sin(a_) * D / 2 * s_, z)))
-        rings.append(ring)
-    for k in range(3):
-        for i in range(40):
-            j = (i + 1) % 40
-            bm.faces.new((rings[k][i], rings[k][j], rings[k + 1][j], rings[k + 1][i]))
-    bm.faces.new(list(reversed(rings[0])))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    tub = add("Tub", bm, plastic, col, root, uv="box", texel=0.3, smooth=50)
-    mod = tub.modifiers.new("Solid", "SOLIDIFY")
-    mod.thickness = 0.006
-    tub.modifiers.move(len(tub.modifiers) - 1, 0)
-    rim = L.revolve_bm([(0.0, 0.0), (0.012, 0.0), (0.012, 0.012), (0.0, 0.012)], 8, True, (0, 0, 0))
-    add("Rim", L.box_bm(W * 1.06, 0.02, 0.02, (0, -D / 2 * 1.04, H)), plastic, col, root, bev=(0.008, 2))
-    add("Rim2", L.box_bm(W * 1.06, 0.02, 0.02, (0, D / 2 * 1.04, H)), plastic, col, root, bev=(0.008, 2))
-    for i, x in enumerate((-W / 2 * 1.04, W / 2 * 1.04)):
-        add(f"Handle_{i}", L.box_bm(0.03, 0.14, 0.035, (x, 0, H - 0.01)), plastic, col, root, bev=(0.01, 3))
-    slots = L.material("Basket_SlotShadow", base=(0.01, 0.015, 0.03), roughness=0.8)
-    for i in range(14):
-        a_ = 2 * math.pi * (i + 0.5) / 14
-        x, y = math.cos(a_) * W / 2 * 0.955, math.sin(a_) * D / 2 * 0.955
-        o = add(f"Slot_{i:02d}", L.box_bm(0.012, 0.05, 0.12, (0, 0, 0)), slots, col, root)
-        o.location = (x * 1.012, y * 1.012, 0.13)
-        o.rotation_euler = (0, 0, a_)
-    pile = _lump(L.box_bm(W * 0.85, D * 0.8, 0.22, (0, 0, H - 0.02)), 7, 0.05, 2)
+    W, D, H = 0.6, 0.42, 0.27
+    bm = L.box_bm(W, D, H, (0, 0, H / 2), skip=("+z",))
+    for v in bm.verts:
+        if v.co.z < 0.01:
+            v.co.x *= 0.86
+            v.co.y *= 0.86
+    add("Tub", bm, plastic, col, root, bev=(0.04, 4), uv="box", texel=0.3,
+        dirt=dict(seed=12, floor=0.0, floor_band=0.1, floor_dark=0.7, stain=0.3, stain_scale=0.08))
+    add("Rim", L.box_bm(W + 0.02, D + 0.02, 0.022, (0, 0, H)), plastic, col, root, bev=(0.01, 3), uv="box")
+    # Slots and hand holes are dark inset plates 1.5 mm proud of the sloped sides.
+    for sgn in (-1, 1):
+        for i in range(6):
+            x = -0.2 + i * 0.08
+            o = add(f"SlotY_{sgn}_{i}", L.box_bm(0.03, 0.002, 0.12, (0, 0, 0)), shadow, col, root)
+            o.location = (x * 0.95, sgn * (D / 2 * 0.93 + 0.0015), 0.13)
+            o.rotation_euler = (sgn * math.radians(-7.5), 0, 0)
+        o = add(f"HandHole_{sgn}", L.rounded_plate_bm(0.11, 0.035, 0.015, 0.002, (0, 0, 0), 6), shadow, col, root)
+        o.location = (sgn * (W / 2 * 0.97 + 0.0015), 0, H - 0.05)
+        o.rotation_euler = (0, sgn * math.radians(7.5), math.radians(90))
+    pile = L.box_bm(W * 0.85, D * 0.82, 0.2, (0, 0, H - 0.01))
     bmesh.ops.subdivide_edges(pile, edges=pile.edges[:], cuts=7, use_grid_fill=True)
-    _lump(pile, 9, 0.04, 3)
+    _lump(pile, 8, 0.05, 3)
     add("Clothes", pile, cloth, col, root, uv="box", texel=0.25, smooth=80,
         dirt=dict(seed=9, floor=-10, stain=0.4, stain_scale=0.06))
-    # A shirt sleeve hanging over the rim.
-    sleeve = _lump(L.cylinder_bm(0.035, 0.22, 12, (W / 2 + 0.02, 0.05, H - 0.06)), 12, 0.012, 4)
+    sleeve = _lump(L.cylinder_bm(0.035, 0.25, 12, (W / 2 + 0.015, 0.05, H - 0.07)), 12, 0.012, 4)
     add("Sleeve", sleeve, cloth, col, root, uv="box", texel=0.25, smooth=80)
     return col.name
 
@@ -428,20 +416,32 @@ def wet_floor_sign():
     yellow = L.material("Sign_Yellow", base=(0.95, 0.7, 0.04), roughness=0.4, tex="plastic_matte", normal_strength=0.3,
                         vertex_color=True)
     ink = L.material("Ink_Black", base=(0.02, 0.02, 0.02), roughness=0.6)
+    lean = math.atan2(0.06, 0.62)      # feet 12 cm apart, tops meet
     for side, sgn in (("F", -1), ("B", 1)):
-        panel = L.box_bm(0.3, 0.012, 0.62, (0, 0, 0.31))
-        bmesh.ops.rotate(panel, verts=panel.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(sgn * 11), 3, "X"))
-        bmesh.ops.translate(panel, vec=Vector((0, sgn * 0.06, 0)), verts=panel.verts)
-        add(f"Panel{side}", panel, yellow, col, root, bev=(0.01, 3), uv="box",
-            dirt=dict(seed=81, floor=0.0, floor_band=0.2, floor_dark=0.6, stain=0.3, stain_scale=0.1))
-    for i, (t, sz, z) in enumerate((("CAUTION", 0.045, 0.52), ("WET FLOOR", 0.035, 0.2), ("PISO MOJADO", 0.022, 0.14))):
-        o = L.text_mesh(f"Text_{i}", t, sz, ink, col, root, bold=(i < 2),
-                        location=(0, -0.06 - 0.008 - (0.62 - z) * math.sin(math.radians(11)) * 0 - 0.0065 - (z - 0.31) * -math.tan(math.radians(11)), z),
-                        rotation=(math.radians(90 - 11), 0, 0))
-    add("Figure", L.box_bm(0.07, 0.003, 0.12, (0, -0.06 - 0.0075 + (0.36 - 0.31) * math.tan(math.radians(11)), 0.36)),
-        ink, col, root)
-    bpy.data.objects["Figure"].rotation_euler = (math.radians(-11), 0, 0)
-    add("TopHandle", L.box_bm(0.12, 0.05, 0.03, (0, 0, 0.635)), yellow, col, root, bev=(0.01, 3))
+        # Each panel lives in its own leaning frame, so the print sits on it exactly.
+        face = L.root_empty(f"Face{side}", col)
+        face.parent = root
+        face.location = (0, sgn * 0.06, 0)
+        face.rotation_euler = (-lean, 0, 0 if sgn < 0 else math.pi)
+        add(f"Panel{side}", L.box_bm(0.3, 0.012, 0.62, (0, -0.0, 0.31)), yellow, col, face, bev=(0.01, 3), uv="box",
+            dirt=dict(seed=81 + sgn, floor=0.0, floor_band=0.2, floor_dark=0.6, stain=0.3, stain_scale=0.1))
+        y = -0.006 - 0.0025
+        L.text_mesh(f"Caution{side}", "CAUTION", 0.05, ink, col, face, bold=True, location=(0, y, 0.53))
+        tri = bmesh.new()
+        vs = [tri.verts.new(p) for p in ((-0.09, y + 0.001, 0.3), (0.09, y + 0.001, 0.3), (0, y + 0.001, 0.46))]
+        tri.faces.new(vs)
+        add(f"WarnTri{side}", tri, ink, col, face)
+        inner = bmesh.new()
+        vs = [inner.verts.new(p) for p in ((-0.07, y - 0.0005, 0.315), (0.07, y - 0.0005, 0.315), (0, y - 0.0005, 0.437))]
+        inner.faces.new(vs)
+        add(f"WarnTriInner{side}", inner, yellow, col, face)
+        # slipping figure: body, head, legs as small black plates
+        add(f"FigBody{side}", L.box_bm(0.012, 0.001, 0.05, (0.0, y - 0.0012, 0.37)), ink, col, face)
+        add(f"FigHead{side}", L.cylinder_bm(0.01, 0.001, 12, (0.012, y - 0.0012, 0.405), axis="Y"), ink, col, face)
+        add(f"FigLeg{side}", L.box_bm(0.045, 0.001, 0.01, (0.02, y - 0.0012, 0.335)), ink, col, face)
+        L.text_mesh(f"Wet{side}", "WET FLOOR", 0.036, ink, col, face, bold=True, location=(0, y, 0.2))
+        L.text_mesh(f"Piso{side}", "PISO MOJADO", 0.022, ink, col, face, location=(0, y, 0.15))
+    add("TopHandle", L.box_bm(0.12, 0.05, 0.03, (0, 0, 0.62)), yellow, col, root, bev=(0.01, 3))
     return col.name
 
 
@@ -508,6 +508,46 @@ def clothes_rack():
     return col.name
 
 
+def contact_shadow():
+    """1 x 1 m soft contact-shadow quad (black, radial alpha) laid just above the
+    floor; Unity scales one under each machine and prop. Export with PNG (alpha)."""
+    import numpy as np
+    col, root = start("ContactShadow")
+    n = 256
+    y, x = (np.mgrid[0:n, 0:n] + 0.5) / n * 2 - 1
+    # Rounded-rectangle falloff so it suits boxy machines as well as round props.
+    d = np.maximum(np.abs(x) ** 4 + np.abs(y) ** 4, 0) ** 0.25
+    alpha = np.clip(1 - d, 0, 1) ** 1.6 * 0.85
+    rgba = np.zeros((n, n, 4))
+    rgba[..., 3] = alpha
+    img = bpy.data.images.get("contact_shadow") or bpy.data.images.new("contact_shadow", n, n, alpha=True)
+    img.pixels.foreach_set(rgba.astype(np.float32).ravel())
+    img.filepath_raw = os.path.join(L.TEX_DIR, "contact_shadow.png")
+    img.file_format = "PNG"
+    img.save()
+    mat = bpy.data.materials.get("ContactShadow") or bpy.data.materials.new("ContactShadow")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    bsdf.inputs["Base Color"].default_value = (0, 0, 0, 1)
+    bsdf.inputs["Roughness"].default_value = 1.0
+    nt.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    mat.surface_render_method = "BLENDED"
+    bm = L.grid_bm(1.0, 1.0, 1.0, (-0.5, -0.5, 0.002), (1, 0, 0), (0, 1, 0))   # 2 mm above the floor
+    obj = L.link(L.mesh_object("Shadow", bm, mat), col, root)
+    uv = obj.data.uv_layers.new(name="UVMap")
+    for poly in obj.data.polygons:
+        for li in poly.loop_indices:
+            co = obj.data.vertices[obj.data.loops[li].vertex_index].co
+            uv.data[li].uv = (co.x + 0.5, co.y + 0.5)
+    return col.name
+
+
 BUILDERS = {
     "Troffer": troffer,
     "LinenCart": linen_cart,
@@ -523,4 +563,5 @@ BUILDERS = {
     "WetFloorSign": wet_floor_sign,
     "MopBucket": mop_bucket,
     "ClothesRack": clothes_rack,
+    "ContactShadow": contact_shadow,
 }

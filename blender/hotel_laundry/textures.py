@@ -4,6 +4,7 @@ Run inside Blender (numpy is bundled). Writes PNGs to TEX_DIR.
 All textures are periodic (FFT filtered) so they tile without seams.
 Normal maps use the OpenGL (+Y up) convention, which glTF and Blender expect.
 """
+import math
 import os
 import numpy as np
 import bpy
@@ -96,6 +97,104 @@ def rubber(n=512):
     grain = filtered_noise(n, 1.5, 1.5)
     save("rubber_roughness", 0.72 + 0.15 * grain, non_color=True)
     save("rubber_normal", height_to_normal(grain, 1.5), non_color=True)
+
+
+def scratches(n, count, length, width, angle_spread=math.pi, curve=0.0, seed=None):
+    """Tileable scratch mask: `count` random strokes, `length` (min, max) in
+    texture units, ~`width` px wide. Returns 0..1."""
+    rng = np.random.default_rng(seed)
+    acc = np.zeros((n, n))
+    base_angle = rng.random() * math.pi
+    for _ in range(count):
+        x, y = rng.random(2)
+        ang = base_angle + (rng.random() - 0.5) * angle_spread
+        ln = rng.uniform(*length)
+        steps = max(2, int(ln * n * 1.5))
+        t = np.linspace(0, 1, steps)
+        bend = curve * (rng.random() - 0.5)
+        xs = x + np.cos(ang + bend * t) * ln * t
+        ys = y + np.sin(ang + bend * t) * ln * t
+        depth = rng.uniform(0.3, 1.0) * np.sin(np.pi * t) ** 0.5     # fades at both ends
+        ix = (xs * n).astype(int) % n
+        iy = (ys * n).astype(int) % n
+        np.add.at(acc, (iy, ix), depth)
+    # soften to ~width px with a periodic gaussian
+    f = np.fft.fftfreq(n)
+    k = np.exp(-2 * (np.pi ** 2) * ((f[None, :] * width) ** 2 + (f[:, None] * width) ** 2))
+    acc = np.real(np.fft.ifft2(np.fft.fft2(acc) * k))
+    return np.clip(acc / max(np.percentile(acc, 99.7), 1e-6), 0, 1)
+
+
+def water_spots(n, count, seed=None):
+    """Dried hard-water rings: faint circles with a darker rim."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:n, 0:n] / n
+    out = np.zeros((n, n))
+    for _ in range(count):
+        cx, cy = rng.random(2)
+        r = rng.uniform(0.004, 0.02)
+        dx = (xx - cx + 0.5) % 1 - 0.5
+        dy = (yy - cy + 0.5) % 1 - 0.5
+        d = np.sqrt(dx * dx + dy * dy)
+        out = np.maximum(out, np.clip(1 - np.abs(d - r) / (r * 0.25), 0, 1) * 0.8 + np.clip(1 - d / r, 0, 1) * 0.2)
+    return out
+
+
+def stainless_aged(n=2048):
+    """Years-old laundromat stainless: satin grain under a dense veil of faint
+    micro-scratches from wiping, a few deeper marks, small soft hard-water spots
+    and dull wipe smears. Subtle on purpose: wear should read only up close."""
+    hair = filtered_noise(n, 600, 0.35)
+    fine = scratches(n, 3500, (0.005, 0.04), 0.5, seed=11)
+    swirl = scratches(n, 250, (0.02, 0.08), 0.5, curve=2.0, seed=12)
+    deep = scratches(n, 18, (0.06, 0.2), 0.8, angle_spread=0.5, seed=13)
+    spots = filtered_noise(n, 2.0, 2.0)
+    spots = np.clip((spots - 0.8) / 0.1, 0, 1) * filtered_noise(n, 60, 60)
+    smear = filtered_noise(n, 90, 160)
+    grime = filtered_noise(n, 30, 30)
+    h = 0.85 * hair + 0.1 * fine + 0.2 * deep
+    base = (0.58 + 0.03 * (hair - 0.5) + 0.04 * fine + 0.09 * deep + 0.02 * swirl
+            - 0.05 * spots - 0.07 * smear ** 2 - 0.06 * grime ** 3)
+    rough = (0.24 + 0.06 * hair + 0.2 * smear ** 1.5 + 0.1 * spots - 0.05 * fine - 0.09 * deep + 0.03 * swirl)
+    tint = np.stack([base * 0.99, base * 0.995, base], axis=-1)
+    save("stainless_aged_basecolor", tint)
+    save("stainless_aged_roughness", np.clip(rough, 0.12, 0.6), non_color=True)
+    save("stainless_aged_normal", height_to_normal(h, 1.4), non_color=True)
+
+
+def plastic_black_aged(n=1024):
+    """Black control-panel plastic: scuffs, wipe arcs, dust specks, button wear."""
+    grain = filtered_noise(n, 1.2, 1.2)
+    scuff = scratches(n, 260, (0.02, 0.1), 0.8, curve=1.5, seed=21)
+    dust = (filtered_noise(n, 0.7, 0.7) > 0.86).astype(float)
+    smear = filtered_noise(n, 70, 70)
+    base = 0.018 + 0.06 * scuff + 0.12 * dust + 0.015 * smear
+    save("plastic_black_aged_basecolor", np.stack([base, base, base * 1.05], axis=-1))
+    save("plastic_black_aged_roughness", np.clip(0.18 + 0.3 * scuff + 0.4 * dust + 0.2 * smear ** 2, 0, 1),
+         non_color=True)
+    save("plastic_black_aged_normal", height_to_normal(grain - 0.5 * scuff, 1.0), non_color=True)
+
+
+def rubber_aged(n=512):
+    """Door gasket rubber: mildew blotches, lint caught in the folds."""
+    grain = filtered_noise(n, 1.5, 1.5)
+    mould = np.clip((filtered_noise(n, 12, 12) - 0.55) / 0.25, 0, 1) ** 1.5
+    lint = (filtered_noise(n, 0.8, 4.0) > 0.88).astype(float)
+    base = np.stack([0.025 + 0.05 * mould + 0.35 * lint, 0.025 + 0.055 * mould + 0.34 * lint,
+                     0.022 + 0.03 * mould + 0.33 * lint], axis=-1)
+    save("rubber_aged_basecolor", base)
+    save("rubber_aged_roughness", np.clip(0.7 + 0.2 * grain - 0.15 * mould + 0.2 * lint, 0, 1), non_color=True)
+    save("rubber_aged_normal", height_to_normal(grain + 0.5 * lint, 1.5), non_color=True)
+
+
+def sticker_aged(n=512):
+    """Vinyl/paper sticker stock: fading, scratches, dirty fingerprints. Used as a
+    multiplier-style base for white stickers (colour stickers get it via tint)."""
+    sc = scratches(n, 180, (0.02, 0.15), 0.7, seed=31)
+    dirt = filtered_noise(n, 25, 25)
+    base = 0.9 - 0.22 * dirt ** 2 - 0.14 * sc - 0.06 * filtered_noise(n, 3, 3)
+    save("sticker_aged_basecolor", np.stack([base, base * 0.985, base * 0.94], axis=-1))
+    save("sticker_aged_roughness", np.clip(0.45 + 0.3 * sc + 0.1 * dirt, 0, 1), non_color=True)
 
 
 def stainless_satin(n=2048):

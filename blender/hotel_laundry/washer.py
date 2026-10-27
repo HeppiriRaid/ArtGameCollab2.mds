@@ -32,12 +32,12 @@ DRUM_R = 0.29
 
 def materials():
     return {
-        "steel": L.material("Stainless_Satin", metallic=1.0, tex="stainless_satin", normal_strength=0.35,
+        "steel": L.material("Stainless_Aged", metallic=1.0, tex="stainless_aged", normal_strength=0.35,
                             vertex_color=True),
-        "sticker": L.material("Sticker_White", base=(0.88, 0.87, 0.82), roughness=0.55, vertex_color=True),
-        "sticker_yellow": L.material("Sticker_Yellow", base=(0.95, 0.75, 0.05), roughness=0.5),
-        "sticker_red": L.material("Sticker_Red", base=(0.7, 0.05, 0.04), roughness=0.45),
-        "sticker_blue": L.material("Sticker_Blue", base=(0.05, 0.22, 0.55), roughness=0.45),
+        "sticker": L.material("Sticker_WhiteWorn", tex="sticker_aged", vertex_color=True),
+        "sticker_yellow": L.material("Sticker_YellowWorn", tex="sticker_aged", tint=(1.0, 0.78, 0.08)),
+        "sticker_red": L.material("Sticker_RedWorn", tex="sticker_aged", tint=(0.75, 0.07, 0.05)),
+        "sticker_blue": L.material("Sticker_BlueWorn", tex="sticker_aged", tint=(0.07, 0.25, 0.6)),
         "ink": L.material("Ink_Black", base=(0.02, 0.02, 0.02), roughness=0.6),
         "ink_white": L.material("Ink_White", base=(0.95, 0.95, 0.95), roughness=0.5),
         "plate": L.material("Plate_Silver", base=(0.72, 0.72, 0.7), metallic=0.85, roughness=0.35),
@@ -46,15 +46,14 @@ def materials():
         "cloth": L.material("Cloth_Load", base=(0.55, 0.6, 0.68), tex="towel", normal_strength=1.0,
                             vertex_color=True),
         "polished": L.material("Stainless_Polished", base=(0.9, 0.9, 0.91), metallic=1.0, roughness=0.09),
-        "panel": L.material("Panel_BlackGloss", base=(0.012, 0.012, 0.014), roughness=0.16, coat=1.0),
-        "handle": L.material("Handle_Black", base=(0.02, 0.02, 0.022), roughness=0.4, tex="plastic_matte",
-                             normal_strength=0.3),
+        "panel": L.material("Panel_BlackAged", tex="plastic_black_aged", normal_strength=0.4, coat=0.6),
+        "handle": L.material("Handle_BlackWorn", tex="plastic_black_aged", normal_strength=0.5),
         "led": L.material("LED_Green", base=(0.1, 0.8, 0.3), emission=(0.15, 1.0, 0.35), emission_strength=3.0),
         "led_off": L.material("LED_Dark", base=(0.01, 0.04, 0.02), roughness=0.1, coat=1.0),
         "print": L.material("Print_White", base=(0.88, 0.89, 0.9), roughness=0.35),
         "button": L.material("Button_Grey", base=(0.35, 0.36, 0.37), metallic=0.6, roughness=0.3),
         "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.45, ior=1.52),
-        "rubber": L.material("Rubber_Black", base=(0.018, 0.018, 0.018), tex="rubber", normal_strength=0.5),
+        "rubber": L.material("Rubber_Aged", tex="rubber_aged", normal_strength=0.6),
         "drum": L.material("Drum_Perforated", metallic=1.0, tex="drum_perforated", normal_strength=1.0),
         "gap": L.material("Gap_Dark", base=(0.03, 0.03, 0.032), roughness=0.6),
     }
@@ -193,7 +192,7 @@ def build_drum(m, col, root):
         add(f"Lifter_{i}", bm, m["steel"], col, root, bev=(0.012, 2), uv="box")
 
 
-STEEL_GRIME = dict(seed=17, floor=0.0, floor_band=0.35, floor_dark=0.7, stain=0.22, stain_scale=0.25)
+STEEL_GRIME = dict(seed=17, floor=0.0, floor_band=0.45, floor_dark=0.5, stain=0.32, stain_scale=0.2, drip=0.25)
 
 
 def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, y_off=0.0, rot=0.0, header=None):

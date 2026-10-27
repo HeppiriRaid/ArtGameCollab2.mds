@@ -71,6 +71,13 @@ def materials():
         "clock_face": L.material("Clock_Face", base=(0.86, 0.85, 0.8), roughness=0.3),
         "sign": L.material("Sign_Plate", base=(0.82, 0.82, 0.8), roughness=0.4),
         "extinguisher": L.material("Extinguisher_Red", base=(0.6, 0.03, 0.02), roughness=0.25, coat=0.8),
+        "paper": L.material("Paper_Note", base=(0.9, 0.89, 0.84), roughness=0.85, vertex_color=True),
+        "sign_plate": L.material("Sign_Printed", base=(0.92, 0.92, 0.9), roughness=0.4, vertex_color=True),
+        "ink": L.material("Ink_Black", base=(0.02, 0.02, 0.02), roughness=0.6),
+        "tape": L.material("Tape_Clear", base=(0.85, 0.82, 0.7), roughness=0.3, alpha=0.5),
+        "cork": L.material("Cork_Board", base=(0.55, 0.38, 0.22), tex="plastic_matte", normal_strength=1.5,
+                           vertex_color=True),
+        "pin": L.material("Pin_Red", base=(0.7, 0.05, 0.04), roughness=0.3),
     }
 
 
@@ -386,6 +393,69 @@ def build_wall_details(m, col, root):
             bev=(0.003, 2))
 
 
+def _paper(m, col, root, name, x, y, z, w, h, facing, lines, size=0.012, rot=0.0, mat="paper", header=None,
+           tape=True):
+    """A sheet of paper (or printed sign) on a wall, 2 mm off it, with text and tape."""
+    nx = {"+x": 1, "-x": -1}.get(facing, 0)
+    ny = {"+y": 1, "-y": -1}.get(facing, 0)
+    off = 0.002
+    px, py = x + nx * off, y + ny * off
+    plate = L.box_bm(w, 0.0006, h, (0, 0, 0))
+    yaw = {"+x": math.pi / 2, "-x": -math.pi / 2, "+y": math.pi, "-y": 0.0}[facing]   # local -Y becomes `facing`
+    o = add(name, plate, m[mat], col, root, dirt=dict(seed=hash(name) % 50, floor=-10, stain=0.35, stain_scale=0.05))
+    o.location = (px, py, z)
+    o.rotation_euler = (0, math.radians(rot), yaw)
+    holder = L.root_empty(name + "_Print", col)
+    holder.parent = root
+    holder.location = (px + nx * 0.0012, py + ny * 0.0012, z)
+    holder.rotation_euler = (0, math.radians(rot), yaw)
+    zt = h / 2 - size * 1.8
+    if header:
+        L.text_mesh(name + "_H", header, size * 1.35, m["ink"], col, holder, bold=True, location=(0, -0.0012, zt))
+        zt -= size * 2.2
+    for i, t in enumerate(lines):
+        L.text_mesh(f"{name}_{i}", t, size, m["ink"], col, holder, location=(0, -0.0012, zt - i * size * 1.7))
+    if tape:
+        for k, (tx, tz) in enumerate(((-w / 2 + 0.01, h / 2 - 0.005), (w / 2 - 0.01, h / 2 - 0.005))):
+            t = add(f"{name}_Tape{k}", L.box_bm(0.035, 0.0006, 0.014, (tx, -0.0011, tz)), m["tape"], col, holder)
+            t.rotation_euler = (0, math.radians(25 if k else -25), 0)
+
+
+def build_notices(m, col, root):
+    """Signs and notes left by staff and guests: the room is used."""
+    # Cork notice board by the doors, on the washer side of the partition.
+    bx, by, bz = -3.2, HL - PART_T / 2, 1.55
+    board = add("NoticeBoard", L.box_bm(0.9, 0.02, 0.6, (bx, by - 0.012, bz)), m["cork"], col, root, bev=(0.003, 2),
+                uv="box", texel=0.6)
+    for i, (sx, sz, w, h) in enumerate(((-0.25, 0.08, 0.22, 0.3), (0.05, 0.12, 0.2, 0.15), (0.3, -0.05, 0.18, 0.25),
+                                       (0.02, -0.14, 0.24, 0.12))):
+        notes = [["HOUSEKEEPING", "SHIFT ROSTER", "MON  A. REYES", "TUE  D. KIM", "WED  M. OKAFOR", "THU  ---",
+                  "FRI  ---"],
+                 ["LOST & FOUND", "ASK FRONT DESK", "EXT. 0"],
+                 ["PAR LEVELS", "BATH TOWEL  1200", "HAND TOWEL  900", "KING SHEET  640", "PILLOWCASE  1800"],
+                 ["TRAINING TUES 3PM", "CHEMICAL SAFETY"]][i]
+        _paper(m, col, root, f"BoardNote_{i}", bx + sx, by - 0.023, bz + sz, w, h, "-y", notes[1:], size=0.011,
+               rot=(-2.5, 1.8, -1.2, 3.0)[i], header=notes[0], tape=False)
+        add(f"Pin_{i}", L.cylinder_bm(0.006, 0.008, 10, (bx + sx, by - 0.03, bz + sz + h / 2 - 0.02), axis="Y"),
+            m["pin"], col, root)
+    # Rules sign by the door on the dryer side.
+    _paper(m, col, root, "RulesSign", 2.4, HL - PART_T / 2 - 0.002, 1.6, 0.42, 0.56, "-y",
+           ["NO DYEING IN MACHINES", "DO NOT OVERLOAD", "CLEAN LINT FILTER", "AFTER EVERY LOAD", "REMOVE LAUNDRY",
+            "PROMPTLY", "", "REPORT FAULTS TO", "ENGINEERING  EXT. 4410"], size=0.016, mat="sign_plate",
+           header="LAUNDRY RULES", tape=False)
+    # Taped notes on the walls above the banks.
+    _paper(m, col, root, "NoteRemove", -HW + 0.002, -6.0, 1.95, 0.21, 0.28, "+x",
+           ["PLEASE REMOVE", "YOUR LAUNDRY", "PROMPTLY.", "ITEMS LEFT OVER", "24 HRS GO TO", "LOST & FOUND", "", "- MGMT"],
+           size=0.013, rot=-3.0)
+    _paper(m, col, root, "NoteSoap", -HW + 0.002, 4.3, 1.9, 0.21, 0.15, "+x",
+           ["DO NOT USE", "REGULAR SOAP", "HE DETERGENT ONLY!!"], size=0.013, rot=2.0)
+    _paper(m, col, root, "LintSign", HW - 0.002, 0.0, 2.15, 0.6, 0.2, "-x",
+           ["DRYER LINT FILTERS MUST BE", "CLEANED BEFORE EVERY USE"], size=0.02, mat="sign_plate",
+           header="ATTENTION", tape=False)
+    _paper(m, col, root, "NoteDryer", HW - 0.002, -6.0, 2.1, 0.21, 0.16, "-x",
+           ["DRYERS 7-9 RUN", "HOT. USE LOW", "FOR DELICATES"], size=0.013, rot=-1.5)
+
+
 CURB_H = 0.2                 # raised tiled plinth under the washer bank
 WASHER_W, WASHER_D = 0.76, 0.724
 DRYER_W, DRYER_D = 0.792, 0.96
@@ -498,6 +568,7 @@ def build():
     build_ceiling(m, col, root)
     build_pipes(m, col, root)
     build_wall_details(m, col, root)
+    build_notices(m, col, root)
     w, d = machine_slots(col, root, m)
     lookdev_interior()
     dg = bpy.context.evaluated_depsgraph_get()
