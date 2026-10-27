@@ -25,7 +25,9 @@ FRONT = -D / 2
 Z_PANEL = 1.0                # control housing bottom
 LEAN = 0.08                  # control face leans back this much at the top
 DOOR_Z = 0.56
-BEZEL_R = 0.27
+COLLAR_R = 0.292            # pressed collar in the front panel around the door
+TRIM_R = 0.264              # door's outer chrome trim
+BEZEL_R = TRIM_R            # (older name, used by stickers/notes layout)
 OPEN_R = 0.2
 DRUM_R = 0.29
 
@@ -52,7 +54,9 @@ def materials():
         "led_off": L.material("LED_Dark", base=(0.01, 0.04, 0.02), roughness=0.1, coat=1.0),
         "print": L.material("Print_White", base=(0.88, 0.89, 0.9), roughness=0.35),
         "button": L.material("Button_Grey", base=(0.35, 0.36, 0.37), metallic=0.6, roughness=0.3),
-        "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.45, ior=1.52),
+        "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.4, ior=1.52),
+        "glass_inner": L.material("Glass_Bowl", base=(0.03, 0.035, 0.035), roughness=0.06, alpha=0.3, ior=1.52),
+        "frost": L.material("Glass_FrostBand", base=(0.5, 0.52, 0.52), roughness=0.55, alpha=0.65),
         "rubber": L.material("Rubber_Aged", tex="rubber_aged", normal_strength=0.6),
         "drum": L.material("Drum_Perforated", metallic=1.0, tex="drum_perforated", normal_strength=1.0),
         "gap": L.material("Gap_Dark", base=(0.03, 0.03, 0.032), roughness=0.6),
@@ -70,24 +74,63 @@ def add(name, bm, mat, col, parent, bev=None, uv=None, texel=0.5, smooth=35.0):
     return obj
 
 
-def build_cabinet(m, col, root):
+def screw(name, x, y, z, col, root, m, r=0.0045, axis="Y"):
+    """Countersunk Phillips screw head: domed head plus a recessed cross."""
+    head = L.revolve_bm([(0.0, -0.0022), (r * 0.6, -0.002), (r, -0.0008), (r, 0.0), (0.0, 0.0)], 16, True, (0, 0, 0))
+    bmesh.ops.translate(head, vec=Vector((x, y, z)), verts=head.verts)
+    add(name, head, m["polished"], col, root, smooth=60)
+    for k, (sx, sz) in enumerate(((r * 1.1, r * 0.25), (r * 0.25, r * 1.1))):
+        add(f"{name}_x{k}", L.box_bm(sx, 0.0008, sz, (x, y - 0.0022, z)), m["gap"], col, root)
+
+
+def build_cabinet(m, col, root, lod=0):
     add("Cabinet", L.box_bm(W, D, Z_PANEL, (0, 0, Z_PANEL / 2), skip=("-y",)), m["steel"], col, root,
         bev=(0.004, 2), uv="box")
-    panel = L.link(L.mesh_object("FrontPanel", L.box_bm(W - 0.002, 0.014, Z_PANEL - 0.004,
-                                                        (0, FRONT - 0.007, Z_PANEL / 2)), m["steel"]), col, root)
-    L.boolean_cut(panel, L.cylinder_bm(OPEN_R, 0.1, 64, (0, FRONT, DOOR_Z), axis="Y"))
+    # Front panel: sheet with a big opening; its pressed door collar is a separate part.
+    panel = L.link(L.mesh_object("FrontPanel", L.box_bm(W - 0.002, 0.014, Z_PANEL - 0.17,
+                                                        (0, FRONT - 0.007, (Z_PANEL + 0.17) / 2)), m["steel"]), col,
+                   root)
+    L.boolean_cut(panel, L.cylinder_bm(COLLAR_R - 0.004, 0.1, 64, (0, FRONT, DOOR_Z), axis="Y"))
     L.box_uv(panel)
     L.bevel(panel, 0.004, 2)
     L.weighted_normals(panel)
     L.triangulate(panel)
-    # Kick-panel seam and screws.
-    add("KickSeam", L.box_bm(W - 0.03, 0.003, 0.004, (0, FRONT - 0.015, 0.16)), m["gap"], col, root)
-    for i, x in enumerate((-0.33, 0.33)):
-        for j, z in enumerate((0.06, 0.93)):
-            add(f"Screw_{i}{j}", L.cylinder_bm(0.005, 0.003, 16, (x, FRONT - 0.0155, z), axis="Y"), m["polished"],
+    y0 = FRONT - 0.014
+    # Pressed collar: raised lip, trough, then rolled down into the opening. Its
+    # back sits inside the panel thickness (no coplanar faces with the panel).
+    collar = [(COLLAR_R, 0.004), (COLLAR_R, -0.002), (COLLAR_R - 0.005, -0.006), (COLLAR_R - 0.016, -0.008),
+              (COLLAR_R - 0.026, -0.006), (COLLAR_R - 0.032, -0.002), (COLLAR_R - 0.036, 0.004),
+              (COLLAR_R - 0.04, 0.014), (COLLAR_R - 0.044, 0.03), (COLLAR_R - 0.03, 0.03)]
+    add("DoorCollar", L.revolve_bm([(r, y0 + y) for r, y in collar], 96 if lod == 0 else 40, True, (0, 0, DOOR_Z)),
+        m["steel"], col, root, smooth=40, uv="box")
+    # Kick panel: separate recessed plate with punched louvres.
+    add("KickPanel", L.box_bm(W - 0.012, 0.012, 0.15, (0, FRONT - 0.002, 0.085)), m["steel"], col, root,
+        bev=(0.003, 2), uv="box")
+    add("KickShadowGap", L.box_bm(W - 0.006, 0.004, 0.006, (0, FRONT - 0.0105, 0.164)), m["gap"], col, root)
+    if lod == 0:
+        for i in range(9):
+            x = -0.24 + i * 0.06
+            add(f"Louvre_{i}", L.rounded_plate_bm(0.042, 0.012, 0.005, 0.004, (x, FRONT - 0.006, 0.1), 4), m["gap"],
                 col, root)
+            lip = L.box_bm(0.044, 0.006, 0.0025, (x, FRONT - 0.0105, 0.1065))
+            add(f"LouvreLip_{i}", lip, m["steel"], col, root, uv="box")
+        for i, x in enumerate((-0.345, 0.345)):
+            screw(f"KickScrew_{i}", x, FRONT - 0.0085, 0.085, col, root, m)
+        add("ServiceLock", L.cylinder_bm(0.011, 0.008, 24, (0.29, FRONT - 0.012, 0.05), axis="Y"), m["polished"],
+            col, root, bev=(0.002, 2, 30))
+        add("ServiceKeyway", L.box_bm(0.0025, 0.002, 0.009, (0.29, FRONT - 0.0165, 0.05)), m["gap"], col, root)
+        for i, (x, z) in enumerate(((-0.345, 0.2), (0.345, 0.2), (-0.345, 0.965), (0.345, 0.965))):
+            screw(f"PanelScrew_{i}", x, FRONT - 0.0155, z, col, root, m)
+        # Folded panel returns: thin vertical lips where neighbouring machines meet.
+        for i, x in enumerate((-W / 2 + 0.003, W / 2 - 0.003)):
+            add(f"PanelReturn_{i}", L.box_bm(0.006, 0.02, Z_PANEL - 0.18, (x, FRONT - 0.006, (Z_PANEL + 0.18) / 2)),
+                m["polished"], col, root, bev=(0.002, 2))
+        # Door latch receptacle on the cabinet, right of the opening.
+        add("LatchHousing", L.rounded_plate_bm(0.03, 0.07, 0.006, 0.012, (COLLAR_R + 0.03, y0 - 0.001, DOOR_Z), 4),
+            m["panel"], col, root, bev=(0.002, 2))
+        add("LatchSlot", L.box_bm(0.008, 0.004, 0.03, (COLLAR_R + 0.03, y0 - 0.0135, DOOR_Z)), m["gap"], col, root)
 
-    # Control housing: stainless box whose front leans back; black glass face on it.
+    # Control housing: stainless box whose front leans back.
     bm = L.box_bm(W, D, H - Z_PANEL, (0, 0, (H + Z_PANEL) / 2))
     for v in bm.verts:
         if v.co.z > Z_PANEL + 0.01 and v.co.y < 0:
@@ -125,11 +168,15 @@ def build_controls(m, col, root):
                 location=(-0.02, -0.0065, -0.05))
 
 
-def build_door(m, col, root):
+def build_door(m, col, root, lod=0):
+    """Door assembly as manufactured: chrome trim rim, satin face ring with screws,
+    inner chrome step, black glass retainer, frosted-edge outer glass, thick inner
+    glass bowl, handle with end caps and fixings, two-knuckle hinge."""
     y0 = FRONT - 0.014
+    seg = 96 if lod == 0 else 40
     door = L.root_empty("Door", col)
     door.parent = root
-    hx = -BEZEL_R + 0.01          # hinges on the left, handle on the right
+    hx = -TRIM_R - 0.012              # hinge axis just outside the trim on the left
     door.location = (hx, y0 - 0.02, DOOR_Z)
     door.empty_display_size = 0.05
 
@@ -137,34 +184,83 @@ def build_door(m, col, root):
         bmesh.ops.translate(bm, vec=Vector((-hx, -(y0 - 0.02), -DOOR_Z)), verts=bm.verts)
         return bm
 
-    center = (0, 0, DOOR_Z)
-    # Polished bezel: flat front face, rounded outer edge, chamfered inner edge.
-    bezel = [(BEZEL_R - 0.002, 0.0), (BEZEL_R + 0.001, -0.01), (BEZEL_R - 0.002, -0.024), (BEZEL_R - 0.012, -0.033),
-             (BEZEL_R - 0.03, -0.037), (0.212, -0.037), (0.203, -0.033), (0.196, -0.024), (0.193, -0.012),
-             (0.193, 0.0)]
-    add("DoorBezel", local(L.revolve_bm([(r, y0 + y) for r, y in bezel], 96, True, center)), m["polished"], col,
-        door, smooth=32)
-    gasket = [(0.195, -0.012), (0.186, -0.02), (0.178, -0.016), (0.176, -0.006), (0.19, -0.004)]
-    add("DoorGasket", local(L.revolve_bm([(r, y0 + y) for r, y in gasket], 64, True, center)), m["rubber"], col,
-        door, smooth=60)
-    glass = [(0.0, -0.022)] + [(0.18 * t, -0.022 + 0.01 * t * t) for t in (0.4, 0.75, 1.0)]
-    add("DoorGlass", local(L.revolve_bm([(r, y0 + y) for r, y in glass], 64, False, center)), m["glass"], col, door,
-        smooth=85)
-    # Black handle bar across the right half of the door, on two standoffs.
-    bar = L.rounded_plate_bm(0.3, 0.036, 0.016, 0.034, (0.16, y0 - 0.06, DOOR_Z), 6)
-    add("HandleBar", local(bar), m["handle"], col, door, bev=(0.004, 2))
-    for i, x in enumerate((0.06, 0.25)):
-        add(f"HandlePost_{i}", local(L.box_bm(0.024, 0.03, 0.024, (x, y0 - 0.045, DOOR_Z))), m["handle"], col, door,
+    def ring(name, prof, mat, smooth=30, n=seg):
+        return add(name, local(L.revolve_bm([(r, y0 + y) for r, y in prof], n, True, (0, 0, DOOR_Z))), mat, col,
+                   door, smooth=smooth)
+
+    ring("DoorTrim", [(TRIM_R - 0.012, -0.004), (TRIM_R - 0.011, -0.022), (TRIM_R - 0.006, -0.031), (TRIM_R, -0.029),
+                      (TRIM_R + 0.0015, -0.016), (TRIM_R, -0.005)], m["polished"])
+    face = [(TRIM_R - 0.012, -0.008), (TRIM_R - 0.012, -0.03), (0.236, -0.0325), (0.222, -0.0345), (0.214, -0.035),
+            (0.214, -0.008)]
+    o = ring("DoorFace", face, m["steel"], smooth=25)
+    L.box_uv(o)
+    ring("DoorStep", [(0.2145, -0.0348), (0.212, -0.0372), (0.205, -0.0365), (0.2, -0.03), (0.198, -0.02),
+                      (0.199, -0.008), (0.2145, -0.008)], m["polished"])
+    ring("GlassRetainer", [(0.1995, -0.012), (0.1995, -0.023), (0.196, -0.029), (0.187, -0.0305), (0.181, -0.027),
+                           (0.181, -0.012)], m["panel"])
+    # Outer glass with a frosted print band at its edge, then the thick inner bowl.
+    add("GlassOuter", local(L.revolve_bm([(r, y0 + y) for r, y in
+                                          [(0.0, -0.029)] + [(0.17 * t, -0.029 + 0.003 * t * t) for t in (0.5, 0.85, 1.0)]],
+                                         seg, False, (0, 0, DOOR_Z))), m["glass"], col, door, smooth=85)
+    add("GlassFrost", local(L.revolve_bm([(0.17, y0 - 0.026), (0.1825, y0 - 0.0255)], seg, False, (0, 0, DOOR_Z))),
+        m["frost"], col, door, smooth=85)
+    if lod == 0:
+        bowl = [(0.0, 0.1)] + [(0.15 * t, 0.1 - 0.105 * t * t) for t in (0.35, 0.6, 0.8, 0.93, 1.0)] + [(0.176, -0.01)]
+        add("GlassBowl", local(L.revolve_bm([(r, y0 + y) for r, y in bowl], 64, False, (0, 0, DOOR_Z))),
+            m["glass_inner"], col, door, smooth=85)
+        bowl2 = [(r * 0.97, y + 0.007) for r, y in bowl]
+        add("GlassBowlBack", local(L.revolve_bm([(r, y0 + y) for r, y in bowl2], 64, False, (0, 0, DOOR_Z))),
+            m["glass_inner"], col, door, smooth=85)
+        # Eight screws hold the face ring to the inner frame.
+        for k in range(8):
+            a = 2 * math.pi * (k + 0.5) / 8
+            r = 0.231
+            yz = -0.0335 - 0.0005
+            hb = L.revolve_bm([(0.0, -0.0018), (0.0026, -0.0016), (0.0038, -0.0006), (0.0038, 0.0), (0.0, 0.0)], 12,
+                              True, (0, 0, 0))
+            bmesh.ops.translate(hb, vec=Vector((math.cos(a) * r, y0 + yz, DOOR_Z + math.sin(a) * r)), verts=hb.verts)
+            add(f"FaceScrew_{k}", local(hb), m["polished"], col, door, smooth=60)
+
+    # Handle: black bar with ribbed grip, chrome end caps and escutcheons on two posts.
+    hz = DOOR_Z
+    bar = L.rounded_plate_bm(0.27, 0.034, 0.016, 0.03, (0.165, y0 - 0.068, hz), 8)
+    add("HandleBar", local(bar), m["handle"], col, door, bev=(0.005, 3))
+    for i, x in enumerate((0.07, 0.255)):
+        add(f"HandlePost_{i}", local(L.cylinder_bm(0.011, 0.04, 20, (x, y0 - 0.05, hz), axis="Y")), m["handle"],
+            col, door)
+        add(f"HandleRose_{i}", local(L.cylinder_bm(0.018, 0.004, 32, (x, y0 - 0.0355, hz), axis="Y")), m["polished"],
+            col, door, bev=(0.0015, 2, 30))
+    if lod == 0:
+        for i, x in enumerate((0.03, 0.3)):
+            add(f"HandleCap_{i}", local(L.box_bm(0.012, 0.032, 0.03, (x, y0 - 0.068, hz))), m["polished"], col, door,
+                bev=(0.006, 3))
+        for k in range(7):
+            add(f"GripRib_{k}", local(L.box_bm(0.004, 0.0015, 0.03, (0.12 + k * 0.016, y0 - 0.0855, hz))), m["panel"],
+                col, door)
+    # Hinge: cabinet block, two knuckles on the door, vertical pin, cover plate.
+    for i, dz in enumerate((-0.14, 0.14)):
+        z = DOOR_Z + dz
+        add(f"HingeBlock_{i}", L.box_bm(0.03, 0.022, 0.07, (hx - 0.004, y0 - 0.011, z)), m["polished"], col, root,
             bev=(0.005, 2))
-    for i, z in enumerate((DOOR_Z - 0.17, DOOR_Z + 0.17)):
-        add(f"Hinge_{i}", L.box_bm(0.03, 0.03, 0.06, (-BEZEL_R + 0.005, y0 - 0.012, z)), m["polished"], col, root,
-            bev=(0.006, 2))
+        add(f"HingeKnuckle_{i}", local(L.cylinder_bm(0.011, 0.05, 24, (hx, y0 - 0.02, z))), m["polished"], col, door,
+            bev=(0.002, 2, 30))
+        add(f"HingeArm_{i}", local(L.box_bm(0.04, 0.012, 0.03, (hx + 0.022, y0 - 0.022, z))), m["polished"], col, door,
+            bev=(0.004, 2))
+        if lod == 0:
+            add(f"HingePinCap_{i}", local(L.cylinder_bm(0.0075, 0.004, 16, (hx, y0 - 0.02, z + 0.027))), m["polished"],
+                col, door)
+            for j, sz in enumerate((-0.022, 0.022)):
+                screw(f"HingeScrew_{i}{j}", hx - 0.004, y0 - 0.0225, z + sz, col, root, m, r=0.0035)
 
 
 def build_drum(m, col, root):
-    y1, y2 = FRONT + 0.01, FRONT + 0.55
-    lip = [(OPEN_R, FRONT - 0.001), (OPEN_R - 0.01, FRONT + 0.015), (DRUM_R - 0.01, FRONT + 0.03)]
-    add("TubFront", L.revolve_bm(lip, 64, False, (0, 0, DOOR_Z)), m["steel"], col, root, smooth=60, uv="box")
+    y1, y2 = FRONT + 0.085, FRONT + 0.6
+    # Folded rubber bellows between the collar and the drum mouth.
+    bellows = [(COLLAR_R - 0.044, FRONT + 0.016), (0.236, FRONT + 0.022), (0.246, FRONT + 0.032), (0.232, FRONT + 0.042),
+               (0.242, FRONT + 0.052), (0.228, FRONT + 0.062), (0.236, FRONT + 0.072), (DRUM_R - 0.01, FRONT + 0.08)]
+    add("Bellows", L.revolve_bm(bellows, 64, False, (0, 0, DOOR_Z)), m["rubber"], col, root, smooth=55)
+    add("DrumMouth", L.revolve_bm([(0.2, FRONT + 0.08), (DRUM_R, FRONT + 0.085)], 64, False, (0, 0, DOOR_Z)),
+        m["steel"], col, root, smooth=60, uv="box")
     bm = L.cylinder_bm(DRUM_R, y2 - y1, 64, (0, (y1 + y2) / 2, DOOR_Z), axis="Y", caps=False)
     bmesh.ops.reverse_faces(bm, faces=bm.faces)
     drum = add("Drum", bm, m["drum"], col, root, smooth=60)
@@ -215,10 +311,11 @@ def sticker(name, w, h, x, z, mat, col, root, lines=(), size=0.007, ink=None, y_
 def build_details(m, col, root):
     """Everything that says real people use and service this machine."""
     # How-to-use instructions on the right of the door.
-    sticker("HowTo", 0.085, 0.24, 0.318, 0.62, m["sticker"], col, root, header="HOW TO USE",
-            lines=["1 LOAD CLOTHES", "  DO NOT OVERLOAD", "2 ADD SOAP TO", "  TOP DISPENSER", "3 CLOSE DOOR",
-                   "4 SELECT TEMP", "5 TAP ROOM KEY", "  OR CARD", "6 PRESS START", "", "REMOVE CLOTHES",
-                   "PROMPTLY"], size=0.0052, ink=m["ink"])
+    # Kept clear of the door latch (z 0.52-0.6) on the right of the opening.
+    sticker("HowTo", 0.075, 0.2, 0.33, 0.8, m["sticker"], col, root, header="HOW TO USE",
+            lines=["1 LOAD CLOTHES", "  DO NOT OVERLOAD", "2 SOAP IN TOP", "  DISPENSER", "3 CLOSE DOOR",
+                   "4 SELECT TEMP", "5 TAP KEY/CARD", "6 PRESS START", "", "REMOVE CLOTHES", "PROMPTLY"],
+            size=0.0048, ink=m["ink"])
     # Caution label, lower left.
     y = FRONT - 0.0145 - 0.0015
     tri = bmesh.new()
@@ -234,7 +331,7 @@ def build_details(m, col, root):
     sticker("NoDyes", 0.07, 0.03, 0.31, 0.38, m["sticker"], col, root, header="NO DYES",
             lines=["NO TINTS"], size=0.0055, ink=m["sticker_red"])
     # Room-key card sticker on the reader side of the panel.
-    sticker("TapKey", 0.07, 0.035, 0.31, 0.95, m["sticker_blue"], col, root, header="TAP KEY",
+    sticker("TapKey", 0.07, 0.035, 0.31, 0.948, m["sticker_blue"], col, root, header="TAP KEY",
             lines=["▲ READER"], size=0.006, ink=m["ink_white"])
     # Rating plate, key lock on the service panel, leftover tape from an old note.
     add("SerialPlate", L.box_bm(0.07, 0.0012, 0.035, (0.29, y - 0.0006, 0.1)), m["plate"], col, root)
@@ -284,21 +381,55 @@ def _cloth_pile(w, d, h, center):
     return bm
 
 
-def build():
-    L.clear_collection(NAME)
-    col = L.collection(NAME)
+def build_lod2(m, col, root):
+    """Far stand-in: cabinet, control face with LED, door disc and handle (~300 tris)."""
+    add("Cabinet", L.box_bm(W, D, H, (0, 0, H / 2)), m["steel"], col, root, uv="box")
+    add("Face", L.box_bm(W - 0.03, 0.004, 0.2, (0, FRONT + LEAN / 2 - 0.004, (H + Z_PANEL) / 2)), m["panel"], col,
+        root)
+    add("Door", L.cylinder_bm(TRIM_R, 0.03, 20, (0, FRONT - 0.03, DOOR_Z), axis="Y"), m["polished"], col, root)
+    add("Glass", L.cylinder_bm(0.19, 0.004, 20, (0, FRONT - 0.047, DOOR_Z), axis="Y"), m["gap"], col, root)
+    add("Handle", L.box_bm(0.27, 0.03, 0.034, (0.16, FRONT - 0.065, DOOR_Z)), m["panel"], col, root)
+
+
+def build(lod=0):
+    """lod=0: full detail. lod=1: distant version (same silhouette, door and
+    screen; no screws, print, stickers, drum internals) for Unity's LODGroup."""
+    name = NAME if lod == 0 else f"{NAME}_LOD{lod}"
+    L.clear_collection(name)
+    col = L.collection(name)
     col.hide_viewport = False
     col.hide_render = False
-    root = L.root_empty(NAME, col)
+    root = L.root_empty(name, col)
     m = materials()
-    build_cabinet(m, col, root)
-    build_controls(m, col, root)
-    build_door(m, col, root)
-    build_drum(m, col, root)
-    build_details(m, col, root)
-    for name in ("Cabinet", "FrontPanel", "ControlHousing"):
-        L.grime(bpy.data.objects[name], **STEEL_GRIME)
+    if lod == 2:
+        build_lod2(m, col, root)
+        return _tris(col)
+    build_cabinet(m, col, root, lod)
+    if lod == 0:
+        build_controls(m, col, root)
+    else:
+        lodface(m, col, root)
+    build_door(m, col, root, lod)
+    if lod == 0:
+        build_drum(m, col, root)
+        build_details(m, col, root)
+    else:
+        bm = L.cylinder_bm(DRUM_R, 0.3, 24, (0, FRONT + 0.25, DOOR_Z), axis="Y", caps=True)
+        add("DrumDark", bm, m["gap"], col, root)
+    for obj in col.all_objects:
+        if obj.name.split(".")[0] in ("Cabinet", "FrontPanel", "ControlHousing", "KickPanel", "DoorCollar"):
+            L.grime(obj, **STEEL_GRIME)
     return _tris(col)
+
+
+def lodface(m, col, root):
+    tilt = math.atan2(LEAN, H - Z_PANEL)
+    frame = L.root_empty("ControlFace", col)
+    frame.parent = root
+    frame.location = (0, FRONT + LEAN / 2 - 0.001, (H + Z_PANEL) / 2)
+    frame.rotation_euler = (-tilt, 0, 0)
+    add("Face", L.box_bm(W - 0.03, 0.004, H - Z_PANEL - 0.03, (0, -0.002, 0)), m["panel"], col, frame)
+    add("LEDWindow", L.box_bm(0.15, 0.002, 0.06, (-0.21, -0.0055, 0.03)), m["led"], col, frame)
 
 
 def _tris(col):

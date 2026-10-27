@@ -39,7 +39,8 @@ def materials():
         "handle": L.material("Handle_BlackWorn", tex="plastic_black_aged", normal_strength=0.5),
         "led": L.material("LED_Red", base=(0.8, 0.1, 0.05), emission=(1.0, 0.15, 0.06), emission_strength=3.0),
         "led_off": L.material("LED_Dark", base=(0.01, 0.04, 0.02), roughness=0.1, coat=1.0),
-        "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.45, ior=1.52),
+        "glass": L.material("Glass_DoorTint", base=(0.04, 0.045, 0.045), roughness=0.03, alpha=0.4, ior=1.52),
+        "frost": L.material("Glass_FrostBand", base=(0.5, 0.52, 0.52), roughness=0.55, alpha=0.65),
         "galv": L.material("Drum_Galvanized", base=(0.6, 0.61, 0.6), metallic=1.0, tex="drum_perforated",
                            normal_strength=1.0),
         "rubber": L.material("Rubber_Aged", tex="rubber_aged", normal_strength=0.6),
@@ -91,7 +92,7 @@ def build_cabinet(m, col, root):
     panel = L.link(L.mesh_object("FrontPanel", L.box_bm(W - 0.002, 0.014, H - 0.004, (0, FRONT - 0.007, H / 2)),
                                  m["steel"]), col, root)
     for z in POCKETS.values():
-        L.boolean_cut(panel, L.cylinder_bm(GLASS_R + 0.012, 0.1, 64, (0, FRONT, z), axis="Y"))
+        L.boolean_cut(panel, L.cylinder_bm(BEZEL_R + 0.016, 0.1, 64, (0, FRONT, z), axis="Y"))
     L.box_uv(panel)
     L.grime(panel, **STEEL_GRIME)
     L.bevel(panel, 0.004, 2)
@@ -122,9 +123,10 @@ def build_cabinet(m, col, root):
         add(f"Screw_{i}", L.cylinder_bm(0.005, 0.003, 16, (x, y - 0.0015, z), axis="Y"), m["polished"], col, root)
 
 
-def build_pocket(m, col, root, name, z):
+def build_pocket(m, col, root, name, z, lod=0):
     y0 = FRONT - 0.014
     center = (0, 0, z)
+    seg = 96 if lod == 0 else 40
     # Drum (galvanised, perforated) with lifters.
     y1, y2 = FRONT + 0.01, FRONT + 0.72
     bm = L.cylinder_bm(DRUM_R, y2 - y1, 64, (0, (y1 + y2) / 2, z), axis="Y", caps=False)
@@ -155,10 +157,18 @@ def build_pocket(m, col, root, name, z):
                             @ Matrix.Rotation(-a + math.radians(90), 4, "Y"), verts=bm.verts)
         add(f"Lifter{name}_{i}", bm, m["galv"], col, root, bev=(0.015, 2), uv="box")
 
-    # Door: pivot on the left hinge so it can swing in Unity.
+    # Pressed collar in the front panel around the opening (back hidden in the panel).
+    cr = BEZEL_R + 0.02
+    collar = [(cr, 0.004), (cr, -0.002), (cr - 0.005, -0.006), (cr - 0.015, -0.008), (cr - 0.024, -0.006),
+              (cr - 0.03, -0.002), (GLASS_R + 0.016, 0.004), (GLASS_R + 0.013, 0.02), (GLASS_R + 0.02, 0.02)]
+    add(f"Collar{name}", L.revolve_bm([(r, y0 + y) for r, y in collar], seg, True, center), m["steel"], col, root,
+        smooth=40, uv="box")
+
+    # Door assembly: chrome trim, satin face ring with screws, inner step, black
+    # retainer, glass with a frosted print band. Pivot on the left hinge.
     door = L.root_empty(f"Door{name}", col)
     door.parent = root
-    hx = -BEZEL_R + 0.01
+    hx = -BEZEL_R - 0.012
     door.location = (hx, y0 - 0.02, z)
     door.empty_display_size = 0.05
 
@@ -166,20 +176,51 @@ def build_pocket(m, col, root, name, z):
         bmesh.ops.translate(bm, vec=Vector((-hx, -(y0 - 0.02), -z)), verts=bm.verts)
         return bm
 
-    bezel = [(BEZEL_R - 0.002, 0.0), (BEZEL_R + 0.001, -0.01), (BEZEL_R - 0.002, -0.022), (BEZEL_R - 0.012, -0.03),
-             (BEZEL_R - 0.03, -0.033), (GLASS_R + 0.02, -0.033), (GLASS_R + 0.01, -0.028), (GLASS_R + 0.004, -0.018),
-             (GLASS_R + 0.002, 0.0)]
-    add(f"DoorBezel{name}", local(L.revolve_bm([(r, y0 + y) for r, y in bezel], 96, True, center)), m["polished"],
-        col, door, smooth=32)
-    glass = [(0.0, -0.02)] + [(GLASS_R * t, -0.02 + 0.008 * t * t) for t in (0.4, 0.75, 1.0)]
-    add(f"DoorGlass{name}", local(L.revolve_bm([(r, y0 + y) for r, y in glass], 64, False, center)), m["glass"], col,
-        door, smooth=85)
-    grip = L.rounded_plate_bm(0.03, 0.16, 0.014, 0.03, (BEZEL_R - 0.035, y0 - 0.052, z), 6)
-    add(f"DoorGrip{name}", local(grip), m["handle"], col, door, bev=(0.004, 2))
-    for i, dz in enumerate((-0.15, 0.15)):
-        add(f"Hinge{name}_{i}", L.box_bm(0.028, 0.03, 0.055, (-BEZEL_R + 0.004, y0 - 0.012, z + dz)), m["polished"],
-            col, root, bev=(0.005, 2))
+    def ring(part, prof, mat, smooth=30):
+        return add(f"{part}{name}", local(L.revolve_bm([(r, y0 + y) for r, y in prof], seg, True, center)), mat, col,
+                   door, smooth=smooth)
 
+    T = BEZEL_R
+    ring("DoorTrim", [(T - 0.011, -0.004), (T - 0.01, -0.02), (T - 0.005, -0.028), (T, -0.026), (T + 0.0015, -0.014),
+                      (T, -0.005)], m["polished"])
+    o = ring("DoorFace", [(T - 0.011, -0.008), (T - 0.011, -0.027), (GLASS_R + 0.035, -0.031),
+                          (GLASS_R + 0.022, -0.032), (GLASS_R + 0.022, -0.008)], m["steel"], smooth=25)
+    L.box_uv(o)
+    ring("DoorStep", [(GLASS_R + 0.0225, -0.0318), (GLASS_R + 0.02, -0.034), (GLASS_R + 0.012, -0.033),
+                      (GLASS_R + 0.008, -0.026), (GLASS_R + 0.008, -0.008), (GLASS_R + 0.0225, -0.008)], m["polished"])
+    ring("GlassRetainer", [(GLASS_R + 0.0085, -0.012), (GLASS_R + 0.0085, -0.022), (GLASS_R + 0.004, -0.027),
+                           (GLASS_R - 0.004, -0.028), (GLASS_R - 0.008, -0.024), (GLASS_R - 0.008, -0.012)], m["panel"])
+    glass = [(0.0, -0.026)] + [(GLASS_R * 0.92 * t, -0.026 + 0.004 * t * t) for t in (0.4, 0.75, 1.0)]
+    add(f"DoorGlass{name}", local(L.revolve_bm([(r, y0 + y) for r, y in glass], seg, False, center)), m["glass"], col,
+        door, smooth=85)
+    add(f"GlassFrost{name}", local(L.revolve_bm([(GLASS_R * 0.92, y0 - 0.0222), (GLASS_R - 0.006, y0 - 0.022)], seg,
+                                                False, center)), m["frost"], col, door, smooth=85)
+    grip = L.rounded_plate_bm(0.03, 0.16, 0.014, 0.03, (T - 0.03, y0 - 0.052, z), 8)
+    add(f"DoorGrip{name}", local(grip), m["handle"], col, door, bev=(0.004, 3))
+    for i, dz in enumerate((-0.06, 0.06)):
+        add(f"GripRose{name}_{i}", local(L.cylinder_bm(0.013, 0.004, 24, (T - 0.03, y0 - 0.033, z + dz), axis="Y")),
+            m["polished"], col, door)
+    for i, dz in enumerate((-0.15, 0.15)):
+        add(f"HingeBlock{name}_{i}", L.box_bm(0.028, 0.022, 0.065, (hx - 0.004, y0 - 0.011, z + dz)), m["polished"],
+            col, root, bev=(0.005, 2))
+        add(f"HingeKnuckle{name}_{i}", local(L.cylinder_bm(0.01, 0.048, 24, (hx, y0 - 0.02, z + dz))), m["polished"],
+            col, door, bev=(0.002, 2, 30))
+        add(f"HingeArm{name}_{i}", local(L.box_bm(0.038, 0.012, 0.028, (hx + 0.021, y0 - 0.022, z + dz))),
+            m["polished"], col, door, bev=(0.004, 2))
+    if lod == 0:
+        for k in range(8):
+            a = 2 * math.pi * (k + 0.5) / 8
+            r = (T - 0.011 + GLASS_R + 0.022) / 2
+            hb = L.revolve_bm([(0.0, -0.0018), (0.0026, -0.0016), (0.0038, -0.0006), (0.0038, 0.0), (0.0, 0.0)], 12,
+                              True, (0, 0, 0))
+            bmesh.ops.translate(hb, vec=Vector((math.cos(a) * r, y0 - 0.0295, z + math.sin(a) * r)), verts=hb.verts)
+            add(f"FaceScrew{name}_{k}", local(hb), m["polished"], col, door, smooth=60)
+        add(f"Latch{name}", L.rounded_plate_bm(0.028, 0.06, 0.006, 0.012, (cr + 0.026, y0 - 0.001, z), 4), m["panel"],
+            col, root, bev=(0.002, 2))
+        add(f"LatchSlot{name}", L.box_bm(0.007, 0.004, 0.026, (cr + 0.026, y0 - 0.0135, z)), m["gap"], col, root)
+
+    if lod:
+        return
     # Someone's load still in the drum (shown on some machines in Unity).
     load = L.root_empty(f"Load{name}", col)
     load.parent = root
@@ -228,17 +269,39 @@ def build_details(m, col, root):
         bev=(0.004, 2), uv="box", texel=0.1)
 
 
-def run():
-    L.clear_collection(NAME)
-    col = L.collection(NAME)
+def build_lod2(m, col, root):
+    """Far stand-in: cabinet, control band, two door discs with grips (~400 tris)."""
+    add("Cabinet", L.box_bm(W, D, H, (0, 0, H / 2)), m["steel"], col, root, uv="box")
+    add("Band", L.box_bm(W - 0.02, 0.006, BAND[1] - BAND[0], (0, FRONT - 0.003, sum(BAND) / 2)), m["panel"], col, root)
+    for name, z in POCKETS.items():
+        add(f"Door{name}", L.cylinder_bm(BEZEL_R, 0.03, 20, (0, FRONT - 0.03, z), axis="Y"), m["polished"], col, root)
+        add(f"Glass{name}", L.cylinder_bm(GLASS_R, 0.004, 20, (0, FRONT - 0.047, z), axis="Y"), m["gap"], col, root)
+        add(f"Grip{name}", L.box_bm(0.03, 0.03, 0.16, (BEZEL_R - 0.03, FRONT - 0.06, z)), m["handle"], col, root)
+    yd = D / 2 - 0.16
+    add("Duct", L.cylinder_bm(0.1, CEILING - H, 12, (0.18, yd, (CEILING + H) / 2), caps=False), m["duct"], col, root)
+
+
+def run(lod=0):
+    """lod=0 full detail; lod=1 distant version for Unity's LODGroup."""
+    name = NAME if lod == 0 else f"{NAME}_LOD{lod}"
+    L.clear_collection(name)
+    col = L.collection(name)
     col.hide_viewport = False
     col.hide_render = False
-    root = L.root_empty(NAME, col)
+    root = L.root_empty(name, col)
     m = materials()
+    if lod == 2:
+        build_lod2(m, col, root)
+        return {"objects": len(col.all_objects)}
     build_cabinet(m, col, root)
-    for name, z in POCKETS.items():
-        build_pocket(m, col, root, name, z)
-    build_details(m, col, root)
+    for pname, z in POCKETS.items():
+        build_pocket(m, col, root, pname, z, lod)
+    if lod == 0:
+        build_details(m, col, root)
+    else:
+        for obj in list(col.all_objects):
+            if obj.name.split(".")[0].startswith(("Screw_", "LEDLabel", "LintKeyHole", "LintLock", "ReaderSlot")):
+                bpy.data.objects.remove(obj, do_unlink=True)
     dg = bpy.context.evaluated_depsgraph_get()
     tris = 0
     for obj in col.all_objects:

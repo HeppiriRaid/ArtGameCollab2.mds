@@ -88,3 +88,13 @@ the game repo `christopherlcollins/ArtGameCollab2`. Follow these rules always.
   is visible in the reference at gameplay distance, it must exist in the model.
 - Small accurate details accumulated everywhere are the goal ("master work, not
   slop"). Budget triangles by merging/LOD, not by skipping detail.
+
+## 10. Performance: steady 60 fps on Koki's Mac (M1 Pro)
+- No TextMeshPro on repeated objects (machines, props). Labels are baked into
+  the model geometry; TMP only for a few unique signs and the HUD.
+- Every repeated object gets an LODGroup (detail up close, simplified mid,
+  stand-in far, culled in the fog). The project's LOD Bias is 2: set
+  thresholds with that in mind.
+- No realtime shadows from the many fluorescent lights; contact shadows instead.
+- Verify with "Koki > Laundry > Performance Build" + the -perfprobe run, not
+  with editor Play-mode stats (the editor adds its own overhead).
